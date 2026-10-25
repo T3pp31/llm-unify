@@ -1,0 +1,3 @@
+# Only verified model entries belong here. No guessed model families or prefixes.
+# User-supplied entries override these records, including per-option unknowns.
+[models]

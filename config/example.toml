@@ -1,0 +1,51 @@
+# Copy to config/local.toml, edit the model names, then export LLM_UNIFY_CONFIG.
+# Secrets are read from environment variables, never put secret values here.
+[providers.openai]
+api = "responses"
+api_key_env = "OPENAI_API_KEY"
+
+[providers.backup]
+kind = "openai"
+base_url = "https://api.openai.com/v1"
+api = "responses"
+api_key_env = "BACKUP_OPENAI_API_KEY"
+
+[aliases]
+chat = "alias/balanced"
+
+[routes.balanced]
+fallbacks = ["anthropic/your-claude-model"]
+
+[[routes.balanced.deployments]]
+model = "openai/your-openai-model"
+provider = "openai"
+weight = 2
+
+[[routes.balanced.deployments]]
+model = "openai/your-openai-model"
+provider = "backup"
+weight = 1
+
+[cache]
+enabled = false
+
+# Optional cloud configuration. These require the matching Cargo features.
+[providers.bedrock]
+region = "us-east-1"
+
+[providers.vertex]
+project = "your-project"
+location = "us-central1"
+
+# Register only capabilities you have verified for the selected model.
+# [capabilities."openai/your-openai-model"]
+# streaming = true
+# tool_calling = true
+# temperature = false
+
+# Optional prices are USD per million tokens; no prices are assumed by the SDK.
+# [prices."openai/your-openai-model"]
+# input_per_million = 1.0
+# output_per_million = 2.0
+# effective_date = "2026-10-25"
+# source = "https://your-verified-pricing-source"
