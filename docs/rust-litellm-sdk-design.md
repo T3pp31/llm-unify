@@ -4,6 +4,8 @@
 
 実装状況: 以下のロードマップ各段階を単一 Crate に実装。Crate のバージョンは初期開発版 `0.1.0`。API の実例・制約・feature は [README](../README.md) を参照。CI は実 API を呼ばず、合成 Fixture とモック HTTP を使用する。
 
+2026-10-26 追記: ローカル LLM の中継と継続的な使用量記録のため、optional な `gateway` feature を追加した。OpenAI Chat Completions 互換の HTTP/SSE 中継、Bearer 認証、SQLite 台帳、日別・モデル別の集計 API を提供する。既存 SDK の各ネイティブ API の変換・Router・Cache とは独立して動作し、HTTP 中継での他社 API 形式変換・自動 Retry・Fallback・Cache は含めない。使用量・料金が不明な場合は `null` とし、料金表は記録時点の値を保存する。これは LiteLLM 全機能の互換実装を意味しない。
+
 ## 1. 概要
 
 本プロジェクトは、LiteLLM の使いやすさを維持しながら、Rust の型安全性と拡張性を備えた LLM SDK を提供する。
@@ -39,7 +41,7 @@ LiteLLM 風の公開 API を持ち、プロバイダーごとの Adapter を内�
 - Agent フレームワーク
 - RAG
 - Vector Store
-- HTTP Proxy
+- SDK 本体での HTTP Proxy（追加の optional gateway の範囲は冒頭追記を参照）
 - 管理画面
 
 ライブラリの責務は「LLM API を安全かつ一貫したインターフェースで呼び出す」までに限定する。Router と Cache は利用者が明示的に設定する追加機能とし、直接呼び出しの利用に必須としない。Router はプロセス内の重み付きラウンドロビン、Retry/Fallback、障害接続先の一時除外を提供する。Cache は既定で無効にする。

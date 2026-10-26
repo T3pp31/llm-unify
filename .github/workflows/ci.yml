@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        feature: ["", "bedrock", "vertex", "opentelemetry"]
+        feature: ["", "bedrock", "vertex", "opentelemetry", "gateway"]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@1.96.0

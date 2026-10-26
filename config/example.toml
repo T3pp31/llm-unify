@@ -49,3 +49,21 @@ location = "us-central1"
 # output_per_million = 2.0
 # effective_date = "2026-10-25"
 # source = "https://your-verified-pricing-source"
+
+# Used only by the optional gateway binary. Set the token in the environment.
+[gateway]
+listen = "127.0.0.1:4000"
+database_path = ".llm-unify/usage.sqlite"
+api_key_env = "LLM_UNIFY_GATEWAY_API_KEY"
+max_request_bytes = 1048576
+max_in_flight = 16
+history_page_size = 100
+sqlite_busy_timeout_ms = 5000
+
+# Local model rates are YOUR operating-cost estimates, not an API bill.
+# Missing prices stay unknown. Zero rates mean a deliberate zero estimate.
+# [prices."ollama/your-installed-model"]
+# input_per_million = 0.0
+# output_per_million = 0.0
+# effective_date = "2026-10-26"
+# source = "your-local-cost-assumptions"

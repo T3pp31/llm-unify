@@ -1,7 +1,7 @@
 # llm-unify
 
 `provider/model` でネイティブ API を切り替える、サーバー・CLI 向けの非同期 Rust SDK です。
-Rust 1.96 以降、Edition 2024、Tokio を使用します。Python LiteLLM の API や HTTP Proxy の互換実装ではありません。
+Rust 1.96 以降、Edition 2024、Tokio を使用します。Python LiteLLM 全体の互換実装ではありません。optional な `gateway` feature は OpenAI Chat Completions 互換の HTTP 中継と使用量台帳を提供します。
 
 ## 利用例
 
@@ -109,3 +109,43 @@ cargo check --locked --no-default-features --all-targets
 
 通常テストはモック HTTP と合成 Fixture のみを使用し、API キー・クラウド認証情報・課金を必要としません。実サービスへの疎通は `examples` を利用して明示実行してください。Fixture の出典と確認日は `tests/fixtures/README.md` に記載しています。
 Linux の CI に加え、手動の workflow_dispatch で macOS・Windows の全 feature テストを実行できます。crates.io への公開は行っていません。
+
+## ローカル LLM の中継と使用量台帳
+
+`gateway` feature は、Ollama 等の OpenAI 互換サーバーに対して通常応答と SSE Streaming を中継します。`openai_compatible` 接続先、または `api = "chat_completions"` を設定した `openai` 接続先を使用できます。API は `POST /v1/chat/completions` です。モデル名は SDK と同じ `provider/model` を受け取り、上流には最初の `/` より後の部分を送ります。その他のリクエストフィールドと応答 JSON は維持します。
+
+```bash
+cp config/example.toml config/local.toml
+export LLM_UNIFY_CONFIG=config/local.toml
+export LLM_UNIFY_GATEWAY_API_KEY='replace-with-a-long-random-secret'
+cargo run --features gateway --bin llm-unify-gateway
+```
+
+`config/local.toml` の `[gateway]` に待受アドレス、SQLite パス、認証用環境変数名、リクエストサイズ・同時実行・履歴取得件数の上限、SQLite 待機時間を設定します。パスは起動ディレクトリからの相対指定または絶対指定です。DB の親ディレクトリとスキーマは起動時に作成します。設定例の待受はループバックです。外部公開する場合の TLS はリバースプロキシ等で設定してください。
+
+Ollama が起動し、対象モデルがインストール済みであることを確認してから呼び出してください。
+
+```bash
+curl http://127.0.0.1:4000/v1/chat/completions \
+  -H "Authorization: Bearer $LLM_UNIFY_GATEWAY_API_KEY" \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"ollama/your-installed-model","messages":[{"role":"user","content":"こんにちは"}]}'
+
+curl http://127.0.0.1:4000/usage/requests \
+  -H "Authorization: Bearer $LLM_UNIFY_GATEWAY_API_KEY"
+curl http://127.0.0.1:4000/usage/summary \
+  -H "Authorization: Bearer $LLM_UNIFY_GATEWAY_API_KEY"
+```
+
+全 API に同じ Bearer 認証が必要です。上流の API キーは既存の Provider 設定の `api_key_env` から読み込み、呼び出し元の認証ヘッダーは上流へ転送しません。プロンプト・生成本文・API キーは DB に保存しません。モデル名、時刻、状態、トークン数、料金表、料金概算を保存します。`x-request-id` で応答と台帳を照合できます。
+
+- 使用量は上流の `usage` を取得します。独自 tokenizer による推定は行いません。不明な値は `null`、実測ゼロは `0` です。
+- Streaming では `stream_options.include_usage = true` を送信します。上流がこれを受け付け、使用量を返す必要があります。使用量イベントはクライアントにも返します。`[DONE]` がない切断は失敗として記録し、SSE エラーを返します。
+- `[prices."provider/model"]` がある場合のみ、通常の入力・出力単価で `estimated_cost_usd` を計算します。記録時点の料金表・出典・適用日を各行に保存し、設定変更で過去の料金を書き換えません。ローカル運用原価を扱う場合は、その想定単価を利用者が設定してください。実際の API 請求額や GPU・電力使用量は計測しません。キャッシュ割引・段階料金等も未対応です。
+- 中継は自動 Retry・Fallback・Cache を使用しません。受理した1件につき上流送信は最大1回です。クライアントが再送した場合は別リクエストとして記録します。
+- 上流への送信前に `pending` 行を永続化し、応答前に `completed`／`failed` に更新します。クライアント切断は `cancelled` に更新します。プロセス強制終了等で確定できなかった行は `pending` のまま残り、成功や無料とは扱いません。保存障害時には HTTP または SSE エラーを返します。
+- `/usage/requests` は新しい順です。`limit` と、返却された `next_before` を `before` に指定してページを取得できます。両 API は `from_ms` 以上・`to_ms` 未満の Unix ミリ秒と `model` で絞り込めます。`/usage/summary` は UTC の日別・モデル別に集計し、取得上限を超えた場合は `truncated: true` を返します。期間・モデルを絞って再取得してください。不明件数を必ず併せて確認し、既知の料金の合計を全体の確定料金と解釈しないでください。
+
+Anthropic／Gemini 等への HTTP 形式変換、利用者別キー管理、予算による停止、管理 UI はこの中継の対象外です。各ネイティブ API は既存 SDK から利用できます。
+
+参照元は `example_code/litellm-main.zip`（コミット `dddbaa803d6e9fcc862ea7a5412f771cb1ae040e`、SHA-256 `b9f9058eb9141baaa7f072ca6be448f2e947d6b264a032a3579a613b63b45a99`）の `ARCHITECTURE.md`、`litellm/proxy/hooks/proxy_track_cost_callback.py`、`litellm/proxy/db/db_spend_update_writer.py`、`litellm-rust/crates/cost/src/lib.rs` です。通常部分の MIT ライセンスを確認し、責務分離・不明単価の扱い・送信ごとの記録を参考に独自実装しています。`enterprise/` のコードは使用していません。

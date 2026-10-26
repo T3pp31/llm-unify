@@ -35,6 +35,19 @@ pub struct CacheConfig {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct GatewayConfig {
+    pub listen: std::net::SocketAddr,
+    pub database_path: std::path::PathBuf,
+    pub api_key_env: String,
+    pub max_request_bytes: usize,
+    pub max_in_flight: usize,
+    /// Maximum and default number of history or summary rows returned per call.
+    pub history_page_size: usize,
+    pub sqlite_busy_timeout_ms: u64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ProviderConfig {
     pub kind: String,
     pub base_url: Option<String>,
@@ -70,6 +83,8 @@ pub struct Config {
     pub retry: RetryConfig,
     pub router: RouterConfig,
     pub cache: CacheConfig,
+    #[serde(default)]
+    pub gateway: Option<GatewayConfig>,
     pub providers: BTreeMap<String, ProviderConfig>,
     #[serde(default)]
     pub capabilities: BTreeMap<String, Capabilities>,
@@ -152,6 +167,22 @@ impl Config {
         Ok(config)
     }
     pub fn validate(&self) -> Result<(), Error> {
+        if let Some(gateway) = &self.gateway
+            && (gateway.database_path.as_os_str().is_empty()
+                || gateway.database_path == Path::new(":memory:")
+                || gateway.api_key_env.is_empty()
+                || gateway.max_request_bytes == 0
+                || gateway.max_in_flight == 0
+                || gateway.max_in_flight > tokio::sync::Semaphore::MAX_PERMITS
+                || gateway.history_page_size == 0
+                || i64::try_from(gateway.history_page_size)
+                    .ok()
+                    .is_none_or(|n| n == i64::MAX)
+                || gateway.sqlite_busy_timeout_ms == 0
+                || gateway.sqlite_busy_timeout_ms > i32::MAX as u64)
+        {
+            return Err(configuration());
+        }
         if self.retry.max_attempts == 0
             || self.retry.total_timeout_ms == 0
             || self.retry.base_delay_ms > self.retry.max_delay_ms

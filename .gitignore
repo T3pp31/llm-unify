@@ -3,3 +3,5 @@
 .env.*
 !.env.example
 config/local*.toml
+example_code/
+.llm-unify/
