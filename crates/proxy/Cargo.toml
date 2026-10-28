@@ -1,0 +1,24 @@
+[package]
+name = "llm-unify-proxy"
+version = "0.1.0"
+license = "MIT"
+repository = "https://github.com/T3pp31/llm-unify"
+edition = "2024"
+rust-version = "1.96"
+publish = false
+
+[dependencies]
+llm-unify-engine = { path = "../engine" }
+litellm-gateway-inference = { path = "../../vendor/litellm/litellm-rust/crates/gateway-inference" }
+litellm-gateway-auth = { path = "../../vendor/litellm/litellm-rust/crates/gateway-auth" }
+axum = "0.8"
+clap = { version = "4", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "signal"] }
+tower = { version = "0.5", features = ["util"] }
+async-stream = "0.3"
+futures-util = "0.3"
+
+[dev-dependencies]
+http-body-util = "0.1"
+wiremock = "0.6"

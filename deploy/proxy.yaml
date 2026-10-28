@@ -1,0 +1,9 @@
+# Edit the upstream model before starting; "main" is the public model name.
+model_list:
+  - model_name: main
+    litellm_params:
+      model: openai/replace-with-your-model
+      api_base: os.environ/UPSTREAM_API_BASE
+      api_key: os.environ/UPSTREAM_API_KEY
+general_settings:
+  master_key: os.environ/LLM_UNIFY_MASTER_KEY

@@ -1,0 +1,41 @@
+name: llm-unify
+services:
+  proxy:
+    image: ${LLM_UNIFY_IMAGE:?Set LLM_UNIFY_IMAGE in deploy/.env}
+    build:
+      context: ..
+      dockerfile: deploy/proxy.Dockerfile
+      args:
+        RUST_IMAGE: ${RUST_IMAGE:?}
+        RUNTIME_IMAGE: ${RUNTIME_IMAGE:?}
+        BUILD_JOBS: ${BUILD_JOBS:?}
+    init: true
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: ${PROXY_PID_LIMIT:?}
+    mem_limit: ${PROXY_MEMORY_LIMIT:?}
+    tmpfs:
+      - /tmp:size=${PROXY_TMPFS_SIZE:?},mode=1777
+    ports:
+      - '${PROXY_BIND_ADDRESS:?}:${PROXY_PORT:?}:${PROXY_CONTAINER_PORT:?}'
+    environment:
+      LLM_UNIFY_MASTER_KEY: ${LLM_UNIFY_MASTER_KEY:?Set a random management key}
+      UPSTREAM_API_BASE: ${UPSTREAM_API_BASE:?Set the upstream API base URL}
+      UPSTREAM_API_KEY: ${UPSTREAM_API_KEY:?Set the upstream API key}
+    volumes:
+      - ./proxy.yaml:/etc/llm-unify/config.yaml:ro
+    command: [--config, /etc/llm-unify/config.yaml, --listen, '0.0.0.0:${PROXY_CONTAINER_PORT:?}']
+    stop_grace_period: ${PROXY_STOP_GRACE_PERIOD:?}
+    healthcheck:
+      test: [CMD, curl, --fail, --silent, --max-time, '${PROXY_HEALTH_CURL_TIMEOUT:?}', 'http://127.0.0.1:${PROXY_CONTAINER_PORT:?}/health/readiness']
+      interval: ${PROXY_HEALTH_INTERVAL:?}
+      timeout: ${PROXY_HEALTH_TIMEOUT:?}
+      retries: ${PROXY_HEALTH_RETRIES:?}
+      start_period: ${PROXY_HEALTH_START_PERIOD:?}
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'

@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "files": {
+    "litellm-rust/crates/framer/Cargo.toml": {
+      "reason": "Allow the semver-compatible eventstream 0.61.6 required by the existing Bedrock SDK without downgrading that SDK.",
+      "upstream_sha256": "848cfadad3b8893ce20239a9c1ac4bfe4f4681b55a8104fad453f78e2f9e8d6c",
+      "patched_sha256": "f7d058210e4b4dc3dc22c92a0d029549a7f11eadcf160bc31b3af6ce39e4082f",
+      "replacements": [
+        {
+          "before": "version = \"=0.61.4\"",
+          "after": "version = \"0.61.4\""
+        }
+      ]
+    },
+    "litellm-rust/crates/llms/Cargo.toml": {
+      "reason": "Allow the existing Bedrock SDK eventstream version in the upstream LLM test dependencies.",
+      "upstream_sha256": "bf2a70a9f0b684ff7bbad87fcf67ba3d49aa1b8c85f0edb9eef8b5792930304e",
+      "patched_sha256": "a7cd746c09b4f2246e1321cec1331983c5cd94d5537a9662e2bf4ded1b072176",
+      "replacements": [
+        {
+          "before": "aws-smithy-eventstream = \"=0.61.4\"",
+          "after": "aws-smithy-eventstream = \"0.61.4\""
+        }
+      ]
+    }
+  }
+}

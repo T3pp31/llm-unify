@@ -1,0 +1,249 @@
+{
+  "schema_version": 1,
+  "request_timeout_seconds": 30,
+  "cases": [
+    {
+      "id": "chat.openai.unary",
+      "method": "POST",
+      "path": "/v1/chat/completions",
+      "request": {
+        "model": "parity-model",
+        "messages": [
+          {
+            "role": "user",
+            "content": "hello"
+          }
+        ],
+        "max_tokens": 16
+      },
+      "exclude_response": [
+        "/id",
+        "/created"
+      ],
+      "upstream": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "id": "chatcmpl-parity",
+          "object": "chat.completion",
+          "created": 1700000000,
+          "model": "parity-upstream",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "hello"
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 2,
+            "completion_tokens": 1,
+            "total_tokens": 3
+          }
+        }
+      }
+    },
+    {
+      "id": "chat.openai.tool",
+      "method": "POST",
+      "path": "/chat/completions",
+      "request": {
+        "model": "parity-model",
+        "messages": [
+          {
+            "role": "user",
+            "content": "weather"
+          }
+        ],
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "weather",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "city": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "exclude_response": [
+        "/id",
+        "/created"
+      ],
+      "upstream": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "id": "chatcmpl-tools",
+          "object": "chat.completion",
+          "created": 1700000000,
+          "model": "parity-upstream",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": null,
+                "tool_calls": [
+                  {
+                    "id": "call_parity",
+                    "type": "function",
+                    "function": {
+                      "name": "weather",
+                      "arguments": "{\"city\":\"Tokyo\"}"
+                    }
+                  }
+                ]
+              },
+              "finish_reason": "tool_calls"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 8,
+            "completion_tokens": 4,
+            "total_tokens": 12
+          }
+        }
+      }
+    },
+    {
+      "id": "chat.openai.tool_result",
+      "method": "POST",
+      "path": "/v1/chat/completions",
+      "request": {
+        "model": "parity-model",
+        "messages": [
+          {
+            "role": "user",
+            "content": "weather"
+          },
+          {
+            "role": "assistant",
+            "content": null,
+            "tool_calls": [
+              {
+                "id": "call_parity",
+                "type": "function",
+                "function": {
+                  "name": "weather",
+                  "arguments": "{\"city\":\"Tokyo\"}"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "tool_call_id": "call_parity",
+            "content": "sunny"
+          }
+        ],
+        "max_tokens": 16
+      },
+      "exclude_response": [
+        "/id",
+        "/created"
+      ],
+      "upstream": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "id": "chatcmpl-parity",
+          "object": "chat.completion",
+          "created": 1700000000,
+          "model": "parity-upstream",
+          "choices": [
+            {
+              "index": 0,
+              "message": {
+                "role": "assistant",
+                "content": "hello"
+              },
+              "finish_reason": "stop"
+            }
+          ],
+          "usage": {
+            "prompt_tokens": 2,
+            "completion_tokens": 1,
+            "total_tokens": 3
+          }
+        }
+      }
+    },
+    {
+      "id": "chat.openai.stream",
+      "method": "POST",
+      "path": "/v1/chat/completions",
+      "request": {
+        "model": "parity-model",
+        "messages": [
+          {
+            "role": "user",
+            "content": "hello"
+          }
+        ],
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        }
+      },
+      "exclude_response": [
+        "/0/data/created",
+        "/1/data/created",
+        "/2/data/created",
+        "/3/data/created"
+      ],
+      "upstream": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "text/event-stream"
+        },
+        "body": "data: {\"id\": \"chatcmpl-stream\", \"object\": \"chat.completion.chunk\", \"created\": 1700000000, \"model\": \"parity-upstream\", \"choices\": [{\"index\": 0, \"delta\": {\"role\": \"assistant\", \"content\": \"\"}, \"finish_reason\": null}]}\n\ndata: {\"id\": \"chatcmpl-stream\", \"object\": \"chat.completion.chunk\", \"created\": 1700000000, \"model\": \"parity-upstream\", \"choices\": [{\"index\": 0, \"delta\": {\"content\": \"こんにちは\"}, \"finish_reason\": null}]}\n\ndata: {\"id\": \"chatcmpl-stream\", \"object\": \"chat.completion.chunk\", \"created\": 1700000000, \"model\": \"parity-upstream\", \"choices\": [{\"index\": 0, \"delta\": {}, \"finish_reason\": \"stop\"}]}\n\ndata: {\"id\": \"chatcmpl-stream\", \"object\": \"chat.completion.chunk\", \"created\": 1700000000, \"model\": \"parity-upstream\", \"choices\": [], \"usage\": {\"prompt_tokens\": 2, \"completion_tokens\": 1, \"total_tokens\": 3}}\n\ndata: [DONE]\n\n"
+      }
+    },
+    {
+      "id": "chat.openai.upstream_429",
+      "method": "POST",
+      "path": "/v1/chat/completions",
+      "request": {
+        "model": "parity-model",
+        "messages": [
+          {
+            "role": "user",
+            "content": "hello"
+          }
+        ],
+        "max_tokens": 16
+      },
+      "exclude_response": [],
+      "upstream": {
+        "status": 429,
+        "headers": {
+          "Content-Type": "application/json",
+          "Retry-After": "0.01"
+        },
+        "body": {
+          "error": {
+            "message": "synthetic rate limit",
+            "type": "rate_limit_error",
+            "code": "rate_limit_exceeded"
+          }
+        }
+      }
+    }
+  ]
+}

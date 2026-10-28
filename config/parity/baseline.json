@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "name": "litellm",
+  "version": "1.108.0",
+  "commit": "dddbaa803d6e9fcc862ea7a5412f771cb1ae040e",
+  "archive": "example_code/litellm-main.zip",
+  "archive_sha256": "b9f9058eb9141baaa7f072ca6be448f2e947d6b264a032a3579a613b63b45a99",
+  "archive_root": "litellm-main/",
+  "destination": "vendor/litellm",
+  "include_directories": [
+    "litellm-rust/"
+  ],
+  "include_files": [
+    "LICENSE"
+  ],
+  "excluded_directories": [
+    "enterprise/"
+  ],
+  "excluded_files": [
+    "litellm/proxy/enterprise"
+  ],
+  "inventory": "docs/parity/inventory.json",
+  "implementation": "config/parity/implementation.json",
+  "patches": "config/parity/patches.json",
+  "evidence": "target/parity/evidence.json",
+  "required_live_providers": [
+    "openai",
+    "anthropic",
+    "gemini",
+    "azure",
+    "bedrock",
+    "vertex",
+    "ollama"
+  ],
+  "required_suites": [
+    "existing_regression",
+    "feature_matrix",
+    "differential",
+    "ui_e2e",
+    "migration",
+    "fault_concurrency",
+    "backup_restore",
+    "load"
+  ],
+  "allowed_exclusions": [
+    "enterprise_only",
+    "python_sdk_syntax",
+    "custom_python_execution"
+  ],
+  "feature_directories": {
+    "cache": [
+      "litellm/caching/"
+    ],
+    "routing": [
+      "litellm/router_strategy/"
+    ],
+    "integration": [
+      "litellm/integrations/"
+    ],
+    "auth": [
+      "litellm/proxy/auth/"
+    ],
+    "management": [
+      "litellm/proxy/management_endpoints/",
+      "litellm-proxy-extras/"
+    ],
+    "guardrail": [
+      "litellm/proxy/guardrails/",
+      "litellm/proxy/hooks/"
+    ],
+    "configuration": [
+      "litellm/proxy/common_utils/config_utils.py"
+    ]
+  },
+  "load": {
+    "replicas": 2,
+    "concurrency": 100,
+    "duration_seconds": 3600,
+    "warmup_seconds": 600,
+    "max_rss_growth_ratio": 0.2
+  },
+  "source_manifest_sha256": "9daa0539b85a21eca5d0b35ae7e948f3bc3703b3821c39f86b6ef27e2c997daa",
+  "reference": {
+    "destination": "target/reference/litellm",
+    "include_directories": [
+      "litellm-rust/",
+      "litellm/",
+      "litellm-proxy-extras/",
+      "litellm_cli/",
+      "ui/litellm-dashboard/",
+      "tests/"
+    ],
+    "include_files": [
+      "LICENSE",
+      "README.md",
+      "pyproject.toml",
+      "uv.lock",
+      "model_prices_and_context_window.json"
+    ],
+    "source_manifest_sha256": "e7d9ede428e7752387e4b9230bb120fc89ef8a307ddaea44aa75e97fcba14c8f"
+  },
+  "inventory_sha256": "a17574aa53bde02dcf16d9bc2c06bef586bd03568fe5177c354d8ff616810308"
+}

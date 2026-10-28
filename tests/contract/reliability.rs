@@ -103,6 +103,184 @@ fn route_config() -> Config {
     c
 }
 
+struct StartupStub(Stub);
+#[async_trait]
+impl Provider for StartupStub {
+    async fn chat(&self, r: &ChatRequest) -> Result<ChatResponse, Error> {
+        self.0.chat(r).await
+    }
+    async fn chat_stream(&self, r: &ChatRequest) -> Result<ChatStream, Error> {
+        let response = self.0.chat(r).await?;
+        Ok(ChatStream::new(
+            r.model.clone(),
+            "stub",
+            stream::iter(vec![
+                Ok(ChatEvent::Usage(response.usage.unwrap())),
+                Ok(ChatEvent::Completed {
+                    reason: FinishReason::Stop,
+                }),
+            ]),
+        ))
+    }
+}
+
+#[tokio::test(start_paused = true)]
+async fn streaming_startup_failure_opens_circuit_and_successful_probe_recovers() {
+    let stub = Arc::new(StartupStub(Stub {
+        calls: AtomicUsize::new(0),
+        fail_first: 1,
+        auth: false,
+        retry_after: None,
+    }));
+    let mut config = Config::default();
+    config.retry.max_attempts = 1;
+    config.router.failure_threshold = 1;
+    config.router.cooldown_ms = 100;
+    let client = Client::builder()
+        .config(config)
+        .provider("stub", stub.clone())
+        .build()
+        .unwrap();
+    let request = ChatRequest::new("stub/model").user("x");
+    assert!(client.chat_stream(request.clone()).await.is_err());
+    // A clone must share the open circuit and avoid a second upstream call.
+    assert!(client.clone().chat_stream(request.clone()).await.is_err());
+    assert_eq!(stub.0.calls.load(Ordering::SeqCst), 1);
+    tokio::time::advance(Duration::from_millis(101)).await;
+    for _ in 0..2 {
+        client
+            .chat_stream(request.clone())
+            .await
+            .unwrap()
+            .collect_response()
+            .await
+            .unwrap();
+    }
+    assert_eq!(stub.0.calls.load(Ordering::SeqCst), 3);
+}
+
+#[tokio::test]
+async fn streaming_startup_failure_falls_back_but_auth_failure_does_not() {
+    for auth in [false, true] {
+        let a = Arc::new(StartupStub(Stub {
+            calls: AtomicUsize::new(0),
+            fail_first: usize::MAX,
+            auth,
+            retry_after: None,
+        }));
+        let b = Arc::new(StartupStub(Stub {
+            calls: AtomicUsize::new(0),
+            fail_first: 0,
+            auth: false,
+            retry_after: None,
+        }));
+        let mut config = route_config();
+        config.router.failure_threshold = 1;
+        let client = Client::builder()
+            .config(config)
+            .provider("a", a.clone())
+            .provider("b", b.clone())
+            .build()
+            .unwrap();
+        let result = client
+            .chat_stream(ChatRequest::new("alias/balanced").user("x"))
+            .await;
+        if auth {
+            assert!(matches!(result, Err(error) if error.kind == ErrorKind::AuthError));
+            assert_eq!(b.0.calls.load(Ordering::SeqCst), 0);
+        } else {
+            let response = result.unwrap().collect_response().await.unwrap();
+            assert_eq!(response.deployment, "b");
+            assert_eq!(b.0.calls.load(Ordering::SeqCst), 1);
+        }
+        assert_eq!(a.0.calls.load(Ordering::SeqCst), 1);
+    }
+}
+
+#[derive(Default)]
+struct StalledStartup(AtomicUsize);
+#[async_trait]
+impl Provider for StalledStartup {
+    async fn chat(&self, _: &ChatRequest) -> Result<ChatResponse, Error> {
+        self.0.fetch_add(1, Ordering::SeqCst);
+        std::future::pending().await
+    }
+    async fn chat_stream(&self, r: &ChatRequest) -> Result<ChatStream, Error> {
+        self.chat(r).await?;
+        std::future::pending().await
+    }
+    async fn embed(&self, _: &EmbeddingRequest) -> Result<EmbeddingResponse, Error> {
+        self.0.fetch_add(1, Ordering::SeqCst);
+        std::future::pending().await
+    }
+}
+
+#[tokio::test(start_paused = true)]
+async fn total_deadline_counts_as_failure_for_chat_streaming_and_embeddings() {
+    for operation in ["chat", "stream", "embed"] {
+        let stub = Arc::new(StalledStartup::default());
+        let mut config = Config::default();
+        config.retry.total_timeout_ms = 10;
+        config.router.failure_threshold = 1;
+        config.router.cooldown_ms = 100;
+        let client = Client::builder()
+            .config(config)
+            .provider("stub", stub.clone())
+            .build()
+            .unwrap();
+        for _ in 0..2 {
+            match operation {
+                "stream" => assert!(
+                    client
+                        .chat_stream(ChatRequest::new("stub/model").user("x"))
+                        .await
+                        .is_err()
+                ),
+                "chat" => assert!(
+                    client
+                        .chat(ChatRequest::new("stub/model").user("x"))
+                        .await
+                        .is_err()
+                ),
+                _ => assert!(
+                    client
+                        .embed(EmbeddingRequest::new(
+                            ModelId::parse("stub/model").unwrap(),
+                            vec!["x".into()]
+                        ))
+                        .await
+                        .is_err()
+                ),
+            }
+        }
+        assert_eq!(stub.0.load(Ordering::SeqCst), 1, "operation={operation}");
+    }
+}
+
+#[tokio::test(start_paused = true)]
+async fn cancelled_streaming_startup_releases_lease_without_opening_circuit() {
+    let stub = Arc::new(StalledStartup::default());
+    let mut config = Config::default();
+    config.router.failure_threshold = 1;
+    let client = Client::builder()
+        .config(config)
+        .provider("stub", stub.clone())
+        .build()
+        .unwrap();
+    for expected_calls in 1..=2 {
+        let clone = client.clone();
+        let task = tokio::spawn(async move {
+            let _ = clone
+                .chat_stream(ChatRequest::new("stub/model").user("x"))
+                .await;
+        });
+        tokio::task::yield_now().await;
+        assert_eq!(stub.0.load(Ordering::SeqCst), expected_calls);
+        task.abort();
+        assert!(task.await.unwrap_err().is_cancelled());
+    }
+}
+
 #[tokio::test(start_paused = true)]
 async fn retry_after_and_global_attempt_budget() {
     let stub = Arc::new(Stub {

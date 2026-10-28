@@ -328,27 +328,26 @@ impl Client {
                 }
                 continue;
             }
-            let lease = Lease {
+            let mut lease = Some(Lease {
                 router: self.inner.router.clone(),
                 deployment: d.clone(),
                 finished: false,
-            };
+            });
             attempts += 1;
             let result = tokio::time::timeout_at(deadline, async {
                 if streaming {
                     let mut events = provider.chat_stream(&request).await?;
                     match events.next().await {
-                        Some(Ok(first)) => Ok(Output::Stream(
-                            self.observe_stream(events, first, lease, start, deadline, attempts),
-                        )),
-                        Some(Err(error)) => {
-                            lease.finish(error.retryable);
-                            Err(error)
-                        }
-                        None => {
-                            lease.finish(true);
-                            Err(Error::transport(true))
-                        }
+                        Some(Ok(first)) => Ok(Output::Stream(self.observe_stream(
+                            events,
+                            first,
+                            lease.take().expect("active attempt lease"),
+                            start,
+                            deadline,
+                            attempts,
+                        ))),
+                        Some(Err(error)) => Err(error),
+                        None => Err(Error::transport(true)),
                     }
                 } else {
                     match provider.chat(&request).await {
@@ -364,13 +363,9 @@ impl Client {
                                     .or_else(|| self.inner.config.prices.get(&d.model))
                                     .map(|p| p.cost(usage));
                             }
-                            lease.finish(false);
                             Ok(Output::Response(response))
                         }
-                        Err(error) => {
-                            lease.finish(error.retryable);
-                            Err(error)
-                        }
+                        Err(error) => Err(error),
                     }
                 }
             })
@@ -378,6 +373,9 @@ impl Client {
             .unwrap_or_else(|_| Err(Error::transport(false)));
             match result {
                 Ok(Output::Response(response)) => {
+                    if let Some(lease) = lease.take() {
+                        lease.finish(false);
+                    }
                     if let (Some(cache), Some(key)) = (&self.inner.cache, key) {
                         let _ =
                             tokio::time::timeout_at(deadline, cache.insert(key, response.clone()))
@@ -388,6 +386,11 @@ impl Client {
                 }
                 Ok(output) => return Ok(output),
                 Err(error) => {
+                    if let Some(lease) = lease.take() {
+                        // A total deadline still indicates a failed upstream attempt,
+                        // even though it must not be retried after the budget expires.
+                        lease.finish(error.retryable || error.kind == ErrorKind::TransportError);
+                    }
                     self.observe(d, start, attempts, None, Some(error.kind));
                     if !error.retryable || attempts >= self.inner.config.retry.max_attempts {
                         return Err(error);
@@ -416,6 +419,7 @@ impl Client {
         let deployment = lease.deployment.clone();
         let model = ModelId::parse(&deployment.model).expect("validated model");
         let name = deployment.provider.clone();
+        let request_id = events.request_id.clone();
         let source = stream::once(async move { Ok(first) }).chain(events);
         let observed = async_stream::stream! {
             futures_util::pin_mut!(source);
@@ -467,7 +471,10 @@ impl Client {
                 }
             }
         };
-        ChatStream::new(model, name, observed)
+        let mut stream = ChatStream::new(model, name, observed);
+        stream.pricing = Some(self.inner.config.clone());
+        stream.request_id = request_id;
+        stream
     }
     fn backoff(&self, error: &Error, attempts: usize) -> Duration {
         if let Some(delay) = error.retry_after {
@@ -542,7 +549,7 @@ impl Client {
                     return Ok(response);
                 }
                 Err(error) => {
-                    lease.finish(error.retryable);
+                    lease.finish(error.retryable || error.kind == ErrorKind::TransportError);
                     if !error.retryable || attempts >= self.inner.config.retry.max_attempts {
                         return Err(error);
                     }

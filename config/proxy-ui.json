@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "request_timeout_ms": 15000,
+  "endpoints": [
+    {"method": "POST", "path": "/v1/chat/completions", "description": "Chat Completions"},
+    {"method": "POST", "path": "/v1/responses", "description": "Responses"}
+  ]
+}

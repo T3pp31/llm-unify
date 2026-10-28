@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="ja">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>使い方 · LLM Unify</title><link rel="stylesheet" href="/ui/style.css"></head>
+<body class="help-page"><main class="help-main"><a class="text-link" href="/ui/">← ワークスペースへ戻る</a><p class="eyebrow">LLM UNIFY</p><h1>使い方</h1><p class="muted">モデルの設定から、アプリケーションへの接続まで。</p>
+<section class="panel"><div class="section-heading"><h2>ログイン</h2></div><div class="help-content"><p>ゲートウェイの管理キーを使ってログインします。運用者は設定ファイルの<code>general_settings.master_key</code>に指定した環境変数で管理キーを設定します。</p><p>キーはページを開いている間だけ使用します。共有端末ではログアウトしてください。外部から利用するときはHTTPS経由で接続してください。</p></div></section>
+<section class="panel" id="models"><div class="section-heading"><h2>モデルを登録する</h2></div><div class="help-content"><p>起動時に読み込むYAMLの<code>model_list</code>を編集し、ゲートウェイを再起動します。設定例は配布物の<code>deploy/proxy.yaml</code>を参照してください。</p><p><code>model_name</code>は利用者に公開する名前、<code>litellm_params.model</code>は接続先のモデルです。APIキーは環境変数で指定します。再起動後、この画面からモデル名を検索・コピーできます。</p><p>登録済みという表示は設定の存在を示します。接続先の正常性や各モデルのAPI対応は、実際のリクエストで確認してください。</p></div></section>
+<section class="panel" id="api"><div class="section-heading"><h2>アプリケーションを接続する</h2></div><div class="help-content"><ol><li>ワークスペースの「API Base URL」をコピーします。</li><li>対応クライアントの接続先URLに指定します。</li><li>管理キーをAPIキー欄に設定し、モデル欄に登録したモデル名を入力します。</li></ol><p>HTTPリクエストでは<code>Authorization: Bearer &lt;管理キー&gt;</code>を指定します。Chat Completionsは<code>/v1/chat/completions</code>、Responsesは<code>/v1/responses</code>です。接続先モデルが対応するAPIを選んでください。</p></div></section>
+<section class="panel"><div class="section-heading"><h2>運用上の提供範囲</h2></div><div class="help-content"><p>現在の画面は設定の閲覧用です。モデルの編集、利用者ごとの仮想キー、使用量集計、予算による停止はこの版では提供していません。管理キーを共有できない利用者・テナントを同じ環境へ収容しないでください。</p><p>LiteLLM OSSの全機能互換は開発中です。導入前に必要なAPI・接続先を検証してください。配布物のREADMEおよびdocs/operations.mdに起動・更新・切り戻し手順を記載しています。</p></div></section>
+<footer><span>LLM Unify</span><a href="/ui/">ワークスペースへ戻る</a></footer></main></body>
+</html>

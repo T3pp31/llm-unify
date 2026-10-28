@@ -1,0 +1,27 @@
+{
+  "postgres": {
+    "url_environment": "LLM_UNIFY_TEST_POSTGRES_URL",
+    "max_connections": 16,
+    "acquire_timeout_ms": 5000,
+    "statement_timeout_ms": 5000,
+    "lock_timeout_ms": 4000
+  },
+  "redis": {
+    "url_environment": "LLM_UNIFY_TEST_REDIS_URL",
+    "namespace": "llm-unify-storage-integration",
+    "operation_timeout_ms": 3000,
+    "max_cache_entry_bytes": 4096
+  },
+  "concurrency": 100,
+  "bind_host": "127.0.0.1",
+  "rate_window_ms": 60000,
+  "expiry_test_ttl_ms": 150,
+  "expiry_test_wait_ms": 300,
+  "postgres_image": "postgres:16",
+  "redis_image": "redis:7.4-alpine",
+  "postgres_user": "unify_storage_test",
+  "postgres_database": "unify_storage_test",
+  "redis_command": ["redis-server", "--appendonly", "yes", "--appendfsync", "always"],
+  "fault_signal": "KILL",
+  "startup_timeout_seconds": 60
+}

@@ -304,6 +304,7 @@ impl Provider for HttpProvider {
             return Err(Error::protocol());
         }
         let name = self.name.clone();
+        let request_id = crate::transport::request_id(response.headers());
         let model = r.model.clone();
         let kind = self.config.kind.clone();
         let format = self.format().to_owned();
@@ -355,7 +356,9 @@ impl Provider for HttpProvider {
                 }
             }
         };
-        Ok(ChatStream::new(model, name, events))
+        let mut stream = ChatStream::new(model, name, events);
+        stream.request_id = request_id;
+        Ok(stream)
     }
     async fn embed(&self, r: &EmbeddingRequest) -> Result<EmbeddingResponse, Error> {
         if !matches!(self.config.kind.as_str(), "openai" | "openai_compatible") {

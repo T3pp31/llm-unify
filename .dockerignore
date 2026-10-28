@@ -1,0 +1,14 @@
+.git
+target
+**/target
+**/node_modules
+**/.next
+**/.venv
+**/__pycache__
+example_code
+.env
+.env.*
+**/.env
+**/.env.*
+config/local*.toml
+.llm-unify

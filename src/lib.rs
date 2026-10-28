@@ -14,6 +14,8 @@ mod client;
 mod config;
 mod embeddings;
 mod error;
+#[cfg(feature = "gateway")]
+pub mod gateway;
 mod observability;
 pub mod providers;
 mod registry;
@@ -25,7 +27,9 @@ mod types;
 pub use cache::{Cache, MemoryCache};
 pub use capabilities::Capabilities;
 pub use client::{Client, ClientBuilder};
-pub use config::{CacheConfig, Config, HttpConfig, ProviderConfig, RetryConfig, RouterConfig};
+pub use config::{
+    CacheConfig, Config, GatewayConfig, HttpConfig, ProviderConfig, RetryConfig, RouterConfig,
+};
 pub use embeddings::{Embedding, EmbeddingRequest, EmbeddingResponse};
 pub use error::{Error, ErrorKind};
 pub use observability::{Observation, Observer, Price};

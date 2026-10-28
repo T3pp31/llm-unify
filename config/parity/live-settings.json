@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "bind_host": "127.0.0.1",
+  "public_model": "local-live",
+  "startup_timeout_seconds": 30,
+  "request_timeout_seconds": 120,
+  "max_response_bytes": 4194304,
+  "max_output_tokens": 256,
+  "reasoning_effort": "low",
+  "unauthenticated_local_api_key": "local-not-required",
+  "unary_prompt": "Reply with the word OK and no other text.",
+  "tool_prompt": "Call parity_echo with value OK. After receiving its result, reply with OK.",
+  "tool": {
+    "type": "function",
+    "name": "parity_echo",
+    "description": "Return the supplied test value. This test tool has no external side effects.",
+    "parameters": {
+      "type": "object",
+      "properties": {"value": {"type": "string", "enum": ["OK"]}},
+      "required": ["value"],
+      "additionalProperties": false
+    },
+    "strict": true
+  },
+  "expected_tool_arguments": {"value": "OK"},
+  "tool_result": "OK"
+}
