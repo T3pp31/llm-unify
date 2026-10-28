@@ -1,0 +1,9 @@
+# Test fixture only. Credentials are deliberately non-production values in Compose.
+model_list:
+  - model_name: parity-model
+    litellm_params:
+      model: openai/parity-upstream
+      api_base: os.environ/PARITY_UPSTREAM_URL
+      api_key: os.environ/PARITY_UPSTREAM_KEY
+general_settings:
+  master_key: os.environ/PARITY_MASTER_KEY

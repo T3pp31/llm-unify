@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "features": {
+    "http:litellm/proxy/proxy_server.py:POST '/chat/completions' @chat_completion": {
+      "scope": "oss",
+      "status": "partial",
+      "contract": {
+        "input": "OpenAI Chat JSON with a configured public model alias, messages, tools and optional streaming.",
+        "output": "Chat completion JSON or ordered SSE events with tool calls and usage; bounded 429 retries and the fixed-version error envelope."
+      },
+      "implementation": [
+        "crates/engine/src/openai.rs",
+        "crates/proxy/src/chat.rs"
+      ],
+      "verification_cases": [
+        "chat.openai.unary",
+        "chat.openai.tool",
+        "chat.openai.tool_result",
+        "chat.openai.stream",
+        "chat.openai.upstream_429"
+      ],
+      "limitations": [
+        "Only the five named mock cases have differential coverage.",
+        "Other providers, parameters, auth/error variants, routes, pricing and persistence require further implementation and verification.",
+        "The existing SDK is not yet connected to this execution adapter."
+      ]
+    },
+    "http:litellm/proxy/proxy_server.py:POST '/v1/chat/completions' @chat_completion": {
+      "scope": "oss",
+      "status": "partial",
+      "contract": {
+        "input": "OpenAI Chat JSON with a configured public model alias, messages, tools and optional streaming.",
+        "output": "Chat completion JSON or ordered SSE events with tool calls and usage; bounded 429 retries and the fixed-version error envelope."
+      },
+      "implementation": [
+        "crates/engine/src/openai.rs",
+        "crates/proxy/src/chat.rs"
+      ],
+      "verification_cases": [
+        "chat.openai.unary",
+        "chat.openai.tool",
+        "chat.openai.tool_result",
+        "chat.openai.stream",
+        "chat.openai.upstream_429"
+      ],
+      "limitations": [
+        "Only the five named mock cases have differential coverage.",
+        "Other providers, parameters, auth/error variants, routes, pricing and persistence require further implementation and verification.",
+        "The existing SDK is not yet connected to this execution adapter."
+      ]
+    },
+    "provider:litellm/types/utils.py:openai": {
+      "scope": "oss",
+      "status": "partial",
+      "contract": {
+        "input": "OpenAI Chat JSON with a configured public model alias, messages, tools and optional streaming.",
+        "output": "Chat completion JSON or ordered SSE events with tool calls and usage; bounded 429 retries and the fixed-version error envelope."
+      },
+      "implementation": [
+        "crates/engine/src/openai.rs",
+        "crates/proxy/src/chat.rs"
+      ],
+      "verification_cases": [
+        "chat.openai.unary",
+        "chat.openai.tool",
+        "chat.openai.tool_result",
+        "chat.openai.stream",
+        "chat.openai.upstream_429"
+      ],
+      "limitations": [
+        "Only the five named mock cases have differential coverage.",
+        "Other providers, parameters, auth/error variants, routes, pricing and persistence require further implementation and verification.",
+        "The existing SDK is not yet connected to this execution adapter."
+      ]
+    },
+    "provider_api:README.md:[OpenAI (`openai`)](https://docs.litellm.ai/docs/providers/openai) `/chat/completions`": {
+      "scope": "oss",
+      "status": "partial",
+      "contract": {
+        "input": "OpenAI Chat JSON with a configured public model alias, messages, tools and optional streaming.",
+        "output": "Chat completion JSON or ordered SSE events with tool calls and usage; bounded 429 retries and the fixed-version error envelope."
+      },
+      "implementation": [
+        "crates/engine/src/openai.rs",
+        "crates/proxy/src/chat.rs"
+      ],
+      "verification_cases": [
+        "chat.openai.unary",
+        "chat.openai.tool",
+        "chat.openai.tool_result",
+        "chat.openai.stream",
+        "chat.openai.upstream_429"
+      ],
+      "limitations": [
+        "Only the five named mock cases have differential coverage.",
+        "Other providers, parameters, auth/error variants, routes, pricing and persistence require further implementation and verification.",
+        "The existing SDK is not yet connected to this execution adapter."
+      ]
+    }
+  }
+}

@@ -1,2 +1,5 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Preserve pinned upstream bytes for SOURCE.json verification.
+vendor/litellm/** -text

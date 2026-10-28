@@ -5,3 +5,12 @@
 config/local*.toml
 example_code/
 .llm-unify/
+/vendor/**/target/
+/vendor/**/node_modules/
+/vendor/**/.next/
+/vendor/**/.venv/
+__pycache__/
+*.pyc
+# Pinned upstream public UI defaults; SOURCE.json verifies their exact contents.
+!/vendor/litellm/ui/litellm-dashboard/.env.development
+!/vendor/litellm/ui/litellm-dashboard/.env.production

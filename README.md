@@ -3,6 +3,10 @@
 `provider/model` でネイティブ API を切り替える、サーバー・CLI 向けの非同期 Rust SDK です。
 Rust 1.96 以降、Edition 2024、Tokio を使用します。Python LiteLLM 全体の互換実装ではありません。optional な `gateway` feature は OpenAI Chat Completions 互換の HTTP 中継と使用量台帳を提供します。
 
+LiteLLM 1.108.0のOSS機能再現を、別コマンド`llm-unify-proxy`と共通実行基盤で開発しています。
+**全機能の再現・製品版の受け入れは未完了です。** PostgreSQL/Redis台帳、管理画面、移行などは未接続です。
+固定ソース・機能調査表・比較試験・完成判定の手順は[互換実装の検証記録](docs/parity/README.md)を参照してください。
+
 ## 利用例
 
 ```rust,no_run
@@ -81,7 +85,7 @@ Vertex は `project`・`location`、Bedrock は設定または AWS 認証チェ�
 - 初期選択した接続先が失敗した場合は、グループ内の残り、明示 Fallback の順に試します。機能や Metadata が不適合な候補には送信しません。
 - イベントを一つでも利用者に返した後は、Streaming の Retry／Fallback を禁止します。
 
-`ChatStream::collect_response()` で最終応答を組み立てられます。正常な終了イベントがない切断は `StreamInterrupted` となり、`error.partial` に生成済み内容と未完成 Tool 引数を保持します。Stream を破棄すると通信を中止します。
+`ChatStream::collect_response()` で最終応答を組み立てられます。Client 経由の Streaming も通常応答と同じ料金表で `cost_usd` を計算し、上流 HTTP ヘッダーのリクエスト ID があれば `request_id` に保持します。料金は応答の実モデル名、送信時のモデル名の順に料金表を参照し、使用量または料金表が不明なら `None` です。正常な終了イベントがない切断は `StreamInterrupted` となり、`error.partial` に生成済み内容と未完成 Tool 引数を保持します。Stream を破棄すると通信を中止します。
 
 Gemini Interactions の `incomplete` は API が正常終了を通知した状態として `FinishReason::Unknown("incomplete")` に保持します。終了原因を API が返していない場合に、トークン上限と断定しません。
 
@@ -100,7 +104,7 @@ Clone 間では共有し、別々に構築した Client 間では、同じ Cache
 ## 検証
 
 ```bash
-cargo fmt --all -- --check
+cargo fmt -p llm-unify -p llm-unify-engine -p llm-unify-proxy -p llm-unify-storage -- --check
 cargo clippy --locked --all-targets --all-features -- -D warnings
 cargo test --locked --all-features --all-targets
 cargo test --locked --doc --all-features
@@ -137,7 +141,7 @@ curl http://127.0.0.1:4000/usage/summary \
   -H "Authorization: Bearer $LLM_UNIFY_GATEWAY_API_KEY"
 ```
 
-全 API に同じ Bearer 認証が必要です。上流の API キーは既存の Provider 設定の `api_key_env` から読み込み、呼び出し元の認証ヘッダーは上流へ転送しません。プロンプト・生成本文・API キーは DB に保存しません。モデル名、時刻、状態、トークン数、料金表、料金概算を保存します。`x-request-id` で応答と台帳を照合できます。
+全 API に同じ Bearer 認証が必要です。上流の API キーは既存の Provider 設定の `api_key_env` から読み込み、呼び出し元の認証ヘッダーは上流へ転送しません。プロンプト・生成本文・API キーは DB に保存しません。モデル名、時刻、状態、トークン数、料金表、料金概算を保存します。認証済みの Chat リクエストには Gateway が生成した `x-request-id` を成功・失敗の両応答に付け、台帳と照合できます。呼び出し元や上流の ID はこの照合 ID として使用しません。送信前の検証・同時実行上限で拒否したリクエストや、初回の保存に失敗したリクエストには台帳行はありません。
 
 - 使用量は上流の `usage` を取得します。独自 tokenizer による推定は行いません。不明な値は `null`、実測ゼロは `0` です。
 - Streaming では `stream_options.include_usage = true` を送信します。上流がこれを受け付け、使用量を返す必要があります。使用量イベントはクライアントにも返します。`[DONE]` がない切断は失敗として記録し、SSE エラーを返します。

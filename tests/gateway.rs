@@ -184,6 +184,10 @@ async fn streaming_requests_usage_and_records_once_at_done() {
     body["stream"] = true.into();
     let result = h.post(body).await;
     assert_eq!(result.status(), StatusCode::OK);
+    let request_id = result.headers()["x-request-id"]
+        .to_str()
+        .unwrap()
+        .to_owned();
     let text = result.text().await.unwrap();
     // Then: content is streamed and the final usage is recorded once, not per frame.
     assert!(text.contains("こんにちは"));
@@ -195,6 +199,7 @@ async fn streaming_requests_usage_and_records_once_at_done() {
     assert_eq!(history["data"].as_array().unwrap().len(), 1);
     assert_eq!(history["data"][0]["total_tokens"], 7);
     assert_eq!(history["data"][0]["status"], "completed");
+    assert_eq!(history["data"][0]["request_id"], request_id);
 }
 
 #[tokio::test]
@@ -408,6 +413,7 @@ async fn upstream_http_errors_are_recorded_without_retry_or_secret_body() {
         .await;
     // When: a request is rejected by upstream.
     let result = h.post(request()).await;
+    let request_id = result.headers().get("x-request-id").cloned();
     // Then: the status is preserved, no retry occurs, and sensitive text is not exposed.
     assert_eq!(result.status(), StatusCode::TOO_MANY_REQUESTS);
     assert!(
@@ -419,9 +425,114 @@ async fn upstream_http_errors_are_recorded_without_retry_or_secret_body() {
     );
     assert_eq!(h.upstream.received_requests().await.unwrap().len(), 1);
     let history = h.get("/usage/requests").await;
+    assert_eq!(
+        request_id.as_ref().and_then(|id| id.to_str().ok()),
+        history["data"][0]["request_id"].as_str()
+    );
     assert_eq!(history["data"][0]["status"], "failed");
     assert_eq!(history["data"][0]["upstream_status"], 429);
     assert!(history["data"][0]["estimated_cost_usd"].is_null());
+}
+
+#[tokio::test]
+async fn gateway_failures_keep_unique_local_ids_for_ledger_correlation() {
+    let h = Harness::new(|_| {}).await;
+    let mut ids = std::collections::BTreeSet::new();
+    for (upstream, streaming, expected_status, expected_error) in [
+        (
+            ResponseTemplate::new(503),
+            false,
+            StatusCode::SERVICE_UNAVAILABLE,
+            "upstream_http_error",
+        ),
+        (
+            ResponseTemplate::new(200).set_body_string("invalid-json"),
+            false,
+            StatusCode::BAD_GATEWAY,
+            "invalid_response",
+        ),
+        (
+            ResponseTemplate::new(200)
+                .set_body_json(json!({"choices":[],"usage":{"prompt_tokens":-1}})),
+            false,
+            StatusCode::BAD_GATEWAY,
+            "invalid_usage",
+        ),
+        (
+            ResponseTemplate::new(200).set_body_raw("data: [DONE]\n\n", "application/json"),
+            true,
+            StatusCode::BAD_GATEWAY,
+            "invalid_stream",
+        ),
+        (
+            ResponseTemplate::new(200).set_body_raw("data: {bad}\n\n", "text/event-stream"),
+            true,
+            StatusCode::OK,
+            "invalid_stream_event",
+        ),
+    ] {
+        h.upstream.reset().await;
+        h.mount(upstream.insert_header("x-request-id", "upstream-id"))
+            .await;
+        let mut body = request();
+        body["stream"] = streaming.into();
+        let response = h
+            .client
+            .post(format!("{}/v1/chat/completions", h.url))
+            .bearer_auth(KEY)
+            .header("x-request-id", "caller-id")
+            .json(&body)
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(response.status(), expected_status);
+        let id = response.headers()["x-request-id"]
+            .to_str()
+            .unwrap()
+            .to_owned();
+        assert!(uuid::Uuid::parse_str(&id).is_ok());
+        assert!(ids.insert(id.clone()));
+        let text = response.text().await.unwrap();
+        assert!(!text.contains("[DONE]"));
+        let history = h.get("/usage/requests").await;
+        let row = history["data"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|row| row["request_id"] == id)
+            .unwrap();
+        assert_eq!(row["status"], "failed");
+        assert_eq!(row["error_code"], expected_error);
+        assert_eq!(h.upstream.received_requests().await.unwrap().len(), 1);
+    }
+}
+
+#[tokio::test]
+async fn transport_failure_keeps_id_and_does_not_retry() {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let connection = tokio::spawn(async move {
+        use tokio::io::AsyncReadExt;
+        let (mut socket, _) = listener.accept().await.unwrap();
+        let mut buffer = [0; 4096];
+        assert!(socket.read(&mut buffer).await.unwrap() > 0);
+        // Close after receiving the request, without returning HTTP headers.
+    });
+    let h = Harness::new(|config| {
+        config.providers.get_mut("ollama").unwrap().base_url = Some(format!("http://{address}"));
+    })
+    .await;
+    let response = h.post(request()).await;
+    assert_eq!(response.status(), StatusCode::BAD_GATEWAY);
+    let id = response.headers()["x-request-id"]
+        .to_str()
+        .unwrap()
+        .to_owned();
+    connection.await.unwrap();
+    let history = h.get("/usage/requests").await;
+    assert_eq!(history["data"].as_array().unwrap().len(), 1);
+    assert_eq!(history["data"][0]["request_id"], id);
+    assert_eq!(history["data"][0]["error_code"], "upstream_transport_error");
 }
 
 #[tokio::test]
@@ -699,6 +810,10 @@ async fn stream_finalization_storage_failure_does_not_emit_done() {
     let mut body = request();
     body["stream"] = true.into();
     let mut result = h.post(body).await;
+    let request_id = result.headers()["x-request-id"]
+        .to_str()
+        .unwrap()
+        .to_owned();
     assert!(result.chunk().await.unwrap().is_some());
     let lock = h.database();
     lock.execute_batch("BEGIN IMMEDIATE").unwrap();
@@ -712,6 +827,10 @@ async fn stream_finalization_storage_failure_does_not_emit_done() {
         .query_row("SELECT status FROM gateway_usage", [], |row| row.get(0))
         .unwrap();
     assert_eq!(status, "pending");
+    let recorded_id: String = lock
+        .query_row("SELECT request_id FROM gateway_usage", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(recorded_id, request_id);
     lock.execute_batch("ROLLBACK").unwrap();
 }
 

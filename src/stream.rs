@@ -1,6 +1,6 @@
 use crate::{
-    ChatResponse, ContentBlock, Error, ErrorKind, FinishReason, ModelId, PartialChatResponse,
-    ProviderMetadata, TokenUsage, ToolCall,
+    ChatResponse, Config, ContentBlock, Error, ErrorKind, FinishReason, ModelId,
+    PartialChatResponse, ProviderMetadata, TokenUsage, ToolCall,
 };
 use futures_core::Stream;
 use futures_util::StreamExt;
@@ -9,6 +9,7 @@ use std::{
     collections::BTreeMap,
     fmt,
     pin::Pin,
+    sync::Arc,
     task::{Context, Poll},
 };
 
@@ -189,6 +190,8 @@ impl StreamAccumulator {
 pub struct ChatStream {
     pub model: ModelId,
     pub deployment: String,
+    pub(crate) pricing: Option<Arc<Config>>,
+    pub(crate) request_id: Option<String>,
     inner: Pin<Box<dyn Stream<Item = Result<ChatEvent, Error>> + Send>>,
 }
 impl ChatStream {
@@ -229,6 +232,8 @@ impl ChatStream {
         Self {
             model,
             deployment,
+            pricing: None,
+            request_id: None,
             inner: Box::pin(inner),
         }
     }
@@ -237,7 +242,16 @@ impl ChatStream {
         while let Some(event) = self.next().await {
             accumulator.push(&event?)?;
         }
-        accumulator.finish()
+        let mut response = accumulator.finish()?;
+        if let (Some(config), Some(usage)) = (&self.pricing, &response.usage) {
+            response.cost_usd = config
+                .prices
+                .get(response.model.as_str())
+                .or_else(|| config.prices.get(self.model.as_str()))
+                .map(|price| price.cost(usage));
+        }
+        response.request_id = self.request_id;
+        Ok(response)
     }
 }
 impl Stream for ChatStream {

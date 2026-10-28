@@ -2,6 +2,90 @@ use super::*;
 use futures_util::StreamExt;
 
 #[tokio::test]
+async fn collected_stream_prices_use_reported_model_then_requested_model_and_keep_request_id() {
+    for api in ["responses", "chat_completions"] {
+        for (requested_rate, reported_rate, with_usage, expected_cost) in [
+            (Some(2.0), None, true, Some(14.0 / 1_000_000.0)),
+            (None, None, true, None),
+            (Some(2.0), Some(3.0), true, Some(21.0 / 1_000_000.0)),
+            (Some(2.0), Some(0.0), true, Some(0.0)),
+            (Some(2.0), Some(3.0), false, None),
+        ] {
+            let server = MockServer::start().await;
+            let usage = if with_usage {
+                if api == "responses" {
+                    json!({"input_tokens":5,"output_tokens":2,"total_tokens":7})
+                } else {
+                    json!({"prompt_tokens":5,"completion_tokens":2,"total_tokens":7})
+                }
+            } else {
+                Value::Null
+            };
+            let (path, body) = if api == "responses" {
+                (
+                    "/responses",
+                    sse(&[
+                        json!({"type":"response.output_text.delta","output_index":0,"content_index":0,"delta":"answer"}),
+                        json!({"type":"response.completed","response":{"model":"actual","status":"completed","usage":usage}}),
+                    ]),
+                )
+            } else {
+                (
+                    "/chat/completions",
+                    format!(
+                        "{}data: [DONE]\n\n",
+                        sse(&[
+                            json!({"model":"actual","choices":[{"index":0,"delta":{"content":"answer"},"finish_reason":"stop"}]}),
+                            json!({"model":"actual","choices":[],"usage":usage}),
+                        ])
+                    ),
+                )
+            };
+            Mock::given(wiremock::matchers::path(path))
+                .respond_with(
+                    ResponseTemplate::new(200)
+                        .set_body_raw(body, "text/event-stream")
+                        .insert_header("x-request-id", "stream-123"),
+                )
+                .expect(1)
+                .mount(&server)
+                .await;
+            let mut settings = config(&server, "openai", Some(api));
+            settings
+                .aliases
+                .insert("chat".into(), "openai/requested".into());
+            for (model, rate) in [("requested", requested_rate), ("actual", reported_rate)] {
+                if let Some(rate) = rate {
+                    settings.prices.insert(
+                        format!("openai/{model}"),
+                        Price {
+                            input_per_million: rate,
+                            output_per_million: rate,
+                            effective_date: "2026-10-27".into(),
+                            source: "test".into(),
+                        },
+                    );
+                }
+            }
+            let response = client(settings)
+                .chat_stream(ChatRequest::new("alias/chat").user("x"))
+                .await
+                .unwrap()
+                .collect_response()
+                .await
+                .unwrap();
+            assert_eq!(response.model.as_str(), "openai/actual");
+            assert_eq!(response.output_text(), "answer");
+            assert_eq!(
+                response.cost_usd, expected_cost,
+                "api={api}, usage={with_usage}"
+            );
+            assert_eq!(response.request_id.as_deref(), Some("stream-123"));
+        }
+    }
+}
+
+#[tokio::test]
 async fn all_native_text_streams_complete() {
     let cases = [
         (
@@ -55,7 +139,17 @@ async fn all_native_text_streams_complete() {
     for (provider, api, url, body) in cases {
         let server = MockServer::start().await;
         mount_sse(&server, url, body).await;
-        let result = client(config(&server, provider, api))
+        let mut settings = config(&server, provider, api);
+        settings.prices.insert(
+            format!("{provider}/test-model"),
+            Price {
+                input_per_million: 2.0,
+                output_per_million: 3.0,
+                effective_date: "2026-10-27".into(),
+                source: "test".into(),
+            },
+        );
+        let result = client(settings)
             .chat_stream(ChatRequest::new(format!("{provider}/test-model")).user("hello"))
             .await
             .unwrap()
@@ -65,6 +159,8 @@ async fn all_native_text_streams_complete() {
         assert_eq!(result.output_text(), "こんにちは");
         assert_eq!(result.finish_reason, FinishReason::Stop);
         assert_eq!(result.usage.unwrap().total_tokens, Some(7));
+        assert_eq!(result.cost_usd, Some(16.0 / 1_000_000.0));
+        assert_eq!(result.request_id, None);
     }
 }
 #[tokio::test]

@@ -5,7 +5,7 @@ pub use ledger::{UsageRecord, UsageSummary};
 
 use crate::{Config, GatewayConfig, Price, TokenUsage};
 use axum::{
-    Json, Router,
+    Extension, Json, Router,
     body::Body,
     extract::{
         DefaultBodyLimit, Query, Request, State,
@@ -151,13 +151,30 @@ impl Gateway {
     /// All routes, including usage history, require the gateway's bearer token.
     pub fn router(&self) -> Router {
         Router::new()
-            .route("/v1/chat/completions", post(chat))
+            .route(
+                "/v1/chat/completions",
+                post(chat).layer(middleware::from_fn(identify_request)),
+            )
             .route("/usage/requests", get(history))
             .route("/usage/summary", get(summary))
             .layer(DefaultBodyLimit::max(self.0.settings.max_request_bytes))
             .route_layer(middleware::from_fn_with_state(self.0.clone(), authenticate))
             .with_state(self.0.clone())
     }
+}
+
+async fn identify_request(mut request: Request, next: Next) -> Response {
+    // Generate the ID locally; caller-supplied IDs cannot impersonate ledger rows.
+    let id = uuid::Uuid::new_v4();
+    request.extensions_mut().insert(id);
+    let mut response = next.run(request).await;
+    response.headers_mut().insert(
+        "x-request-id",
+        id.to_string()
+            .parse()
+            .expect("UUID is a valid header value"),
+    );
+    response
 }
 
 async fn authenticate(State(state): State<Arc<Inner>>, request: Request, next: Next) -> Response {
@@ -219,6 +236,7 @@ async fn summary(
 
 async fn chat(
     State(state): State<Arc<Inner>>,
+    Extension(id): Extension<uuid::Uuid>,
     body: Result<Json<Value>, JsonRejection>,
 ) -> Result<Response, ApiError> {
     let Json(mut body) = body.map_err(|error| ApiError {
@@ -305,7 +323,7 @@ async fn chat(
             code: "gateway_busy",
             message: "gateway concurrency limit reached",
         })?;
-    let id = uuid::Uuid::new_v4().to_string();
+    let id = id.to_string();
     let price = state.config.prices.get(&model).cloned();
     state
         .ledger
@@ -382,12 +400,7 @@ async fn chat(
         }
     };
     record.finish("completed", None).await?;
-    let mut response = Json(value).into_response();
-    response.headers_mut().insert(
-        "x-request-id",
-        record.id.parse().map_err(|_| ApiError::storage())?,
-    );
-    Ok(response)
+    Ok(Json(value).into_response())
 }
 
 #[derive(Clone, Copy, Default)]
@@ -508,7 +521,6 @@ fn stream_response(
     config: crate::HttpConfig,
     record: Record,
 ) -> Response {
-    let id = record.id.clone();
     let stream = async_stream::stream! {
         let mut record = record;
         let events = crate::transport::sse_bytes(response, config.clone()).eventsource();
@@ -550,8 +562,5 @@ fn stream_response(
         "text/event-stream".parse().expect("static header"),
     );
     headers.insert("cache-control", "no-cache".parse().expect("static header"));
-    if let Ok(id) = id.parse() {
-        headers.insert("x-request-id", id);
-    }
     (headers, Body::from_stream(stream)).into_response()
 }

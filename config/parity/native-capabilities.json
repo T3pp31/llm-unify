@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "root": ["model_list", "general_settings", "environment_variables"],
+  "general_settings": ["master_key"],
+  "model": ["model_name", "litellm_params"],
+  "litellm_params": ["model", "api_key", "api_base", "custom_llm_provider"],
+  "python_extension_settings": ["custom_auth", "custom_key_generate", "custom_sso", "custom_health_check", "custom_prompt_management", "custom_callbacks"]
+}

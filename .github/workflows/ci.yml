@@ -2,9 +2,9 @@ name: CI
 on:
   push:
     branches: [main]
-    paths: ["src/**", "tests/**", "examples/**", "config/**", "Cargo.toml", "Cargo.lock", ".github/workflows/ci.yml"]
+    paths: ["src/**", "crates/**", "vendor/**", "tools/**", "deploy/**", "docs/parity/**", "tests/**", "examples/**", "config/**", "Cargo.toml", "Cargo.lock", ".github/workflows/ci.yml"]
   pull_request:
-    paths: ["src/**", "tests/**", "examples/**", "config/**", "Cargo.toml", "Cargo.lock", ".github/workflows/ci.yml"]
+    paths: ["src/**", "crates/**", "vendor/**", "tools/**", "deploy/**", "docs/parity/**", "tests/**", "examples/**", "config/**", "Cargo.toml", "Cargo.lock", ".github/workflows/ci.yml"]
   workflow_dispatch:
 permissions:
   contents: read
@@ -23,7 +23,7 @@ jobs:
             ~/.cargo/git
             target
           key: ${{ runner.os }}-stable-cargo-${{ hashFiles('Cargo.lock') }}
-      - run: cargo fmt --all -- --check
+      - run: cargo fmt -p llm-unify -- --check
       - run: cargo clippy --locked --all-targets --all-features -- -D warnings
       - run: cargo test --locked --all-features --all-targets
       - run: cargo test --locked --doc --all-features
@@ -60,3 +60,43 @@ jobs:
             target
           key: ${{ runner.os }}-stable-${{ hashFiles('Cargo.lock') }}
       - run: cargo test --locked --all-features --all-targets
+  native-proxy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.96.0
+        with:
+          components: rustfmt, clippy
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-native-proxy-${{ hashFiles('Cargo.lock') }}
+      - run: python tools/parity/source.py verify
+      - run: python tools/parity/workspace.py check
+      - run: python tools/parity/inventory.py check
+      - run: python -m unittest discover -s tests/parity -v
+      - run: cargo fmt -p llm-unify-engine -p llm-unify-proxy -p llm-unify-storage -- --check
+      - run: cargo clippy -p llm-unify-engine -p llm-unify-proxy -p llm-unify-storage --no-deps --locked --all-targets -- -D warnings
+      - run: cargo test -p llm-unify-engine -p llm-unify-proxy --locked
+      - name: Pull isolated storage test images
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          import subprocess
+          config = json.loads(Path("config/parity/storage-test.json").read_text())
+          for key in ("postgres_image", "redis_image"):
+              subprocess.run(["docker", "pull", config[key]], check=True)
+          PY
+      - run: python tools/parity/run_storage.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: storage-foundation-results
+          path: target/parity/storage*

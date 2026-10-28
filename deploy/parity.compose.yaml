@@ -1,0 +1,61 @@
+name: llm-unify-parity
+services:
+  mock:
+    image: ${PARITY_PYTHON_IMAGE:?}
+    working_dir: /workspace
+    volumes:
+      - ../tools/parity:/workspace/tools/parity:ro
+    command: [python, tools/parity/mock.py, --host, '${PARITY_BIND_HOST:?}', --port, '${PARITY_MOCK_PORT:?}']
+    healthcheck:
+      test: [CMD, python, -c, 'import urllib.request; urllib.request.urlopen("http://127.0.0.1:${PARITY_MOCK_PORT}/health")']
+      interval: 2s
+      timeout: 2s
+      retries: 30
+  reference:
+    build:
+      context: ..
+      dockerfile: deploy/reference.Dockerfile
+      args:
+        PYTHON_IMAGE: ${PARITY_PYTHON_IMAGE:?}
+        UV_VERSION: ${PARITY_UV_VERSION:?}
+    environment:
+      CONFIG_FILE_PATH: /fixture/proxy.yaml
+      PARITY_MASTER_KEY: ${PARITY_MASTER_KEY:?}
+      PARITY_UPSTREAM_KEY: synthetic-upstream-key
+      PARITY_UPSTREAM_URL: http://mock:${PARITY_MOCK_PORT:?}/v1
+    volumes:
+      - ../config/parity/proxy.yaml:/fixture/proxy.yaml:ro
+    command: [--host, '${PARITY_BIND_HOST:?}', --port, '${PARITY_REFERENCE_PORT:?}']
+    depends_on:
+      mock:
+        condition: service_healthy
+  native:
+    build:
+      context: ..
+      dockerfile: deploy/proxy.Dockerfile
+      args:
+        RUST_IMAGE: ${PARITY_RUST_IMAGE:?}
+        RUNTIME_IMAGE: ${PARITY_RUNTIME_IMAGE:?}
+    environment:
+      PARITY_MASTER_KEY: ${PARITY_MASTER_KEY:?}
+      PARITY_UPSTREAM_KEY: synthetic-upstream-key
+      PARITY_UPSTREAM_URL: http://mock:${PARITY_MOCK_PORT:?}/v1
+    volumes:
+      - ../config/parity/proxy.yaml:/fixture/proxy.yaml:ro
+    command: [--config, /fixture/proxy.yaml, --listen, '${PARITY_BIND_HOST:?}:${PARITY_NATIVE_PORT:?}']
+    depends_on:
+      mock:
+        condition: service_healthy
+  compare:
+    image: ${PARITY_PYTHON_IMAGE:?}
+    working_dir: /workspace
+    environment:
+      PARITY_MASTER_KEY: ${PARITY_MASTER_KEY:?}
+    volumes:
+      - ../tools/parity:/workspace/tools/parity:ro
+      - ../config/parity:/workspace/config/parity:ro
+      - ../target/parity:/workspace/target/parity
+    command: [python, tools/parity/compare.py, --reference-url, 'http://reference:${PARITY_REFERENCE_PORT:?}', --native-url, 'http://native:${PARITY_NATIVE_PORT:?}', --mock-url, 'http://mock:${PARITY_MOCK_PORT:?}', --token-env, PARITY_MASTER_KEY, --subject, '${PARITY_SUBJECT:?}', --startup-seconds, '${PARITY_STARTUP_SECONDS:?}']
+    depends_on:
+      - reference
+      - native
