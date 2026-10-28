@@ -6,14 +6,15 @@
 
 基準はLiteLLM **1.108.0**、コミット`dddbaa803d6e9fcc862ea7a5412f771cb1ae040e`です。
 参照ZIP、SHA-256、抽出範囲、元ソースmanifestのSHA-256は`config/parity/baseline.json`に固定しています。
-MITの著作権表示は`vendor/litellm/LICENSE`等に保存し、Enterpriseディレクトリは取り込みません。
+MITの著作権表示は`vendor/litellm/LICENSE`等に保存します。リポジトリには上流Rustとそのテスト資材だけを保持し、Python版本体・上流Web UIは同梱しません。
+比較用の固定ソースはGit対象外の`target/reference/litellm/`へ配置します。Enterpriseディレクトリは取り込みません。
 上流Rustの依存制約への変更は`config/parity/patches.json`に理由・変更内容・変更前後のハッシュを記録しています。
 
 ## 現在の範囲
 
 | 項目 | 状態 |
 |---|---|
-| 固定ソースの取り込み、ライセンス・ハッシュ、上流Rustの再利用 | 実装済み。取り込みは機能実装の証拠に数えない |
+| 上流Rustの再利用、ライセンス・ハッシュ、外部比較ソースの分離 | 実装済み。取り込みは機能実装の証拠に数えない |
 | HTTP、Provider、Provider/API、設定、SDK公開名、Router、Cache、認証、管理、Guardrail、連携、UIの静的抽出 | 調査候補を生成済み。OSS/Enterprise判定・動的登録の精査・契約レビューは未完了 |
 | OpenAI Chatの通常応答、Tool Call、Tool結果の往復、SSE、上流429 | 固定Python版と模擬上流を使う比較ケースを実装 |
 | 上流RustのResponses、Messages、OCR、Transcription等 | 経路を接続済み。各機能のPython比較は未完了 |
@@ -21,7 +22,8 @@ MITの著作権表示は`vendor/litellm/LICENSE`等に保存し、Enterpriseデ�
 | 既存SDKを共通実行基盤へ接続、全Provider/API、料金、Router、Cache backend | 未完了 |
 | PostgreSQLの試行台帳・原子的複数予算予約/精算、Redis共有レート制限/Cache | Rust APIと実DB試験を実装。Proxyの全送信経路への接続は未完了 |
 | 仮想キー、利用者/チーム/組織管理、料金表との接続、管理API | 未実装 |
-| 上流UIの本番ビルド・Rust配信・操作E2E、DB移行、バックアップ/復元 | 未実装 |
+| Webコンソール `/ui/` | Rust自身が配信。認証付き設定モデル一覧・稼働状態を表示。管理操作は未実装 |
+| 管理画面の全操作・操作E2E、DB移行、バックアップ/復元 | 未実装 |
 | 代表7接続先の実API、2台/100同時/1時間の障害・継続稼働試験 | 未実施。Codexのローカルルーターは別枠の実接続試験として扱う |
 
 `inventory.json`は静的な調査候補の一覧です。件数を機能数・OSS対応数・実装済み数と読み替えません。
@@ -41,7 +43,12 @@ python3 tools/parity/inventory.py check
 python3 -m unittest discover -s tests/parity -v
 ```
 
-参照ZIPから再取り込みする場合は`python3 tools/parity/source.py import`を使います。
+参照ZIPは`config/parity/baseline.json`の`archive`へ配置します。SHA-256が固定値と一致するものだけ使用します。
+`python3 tools/parity/source.py import`はRust資材だけを取り込みます。Python版をvendorへ復元しません。
+比較前に`python3 tools/parity/source.py import --reference`を実行すると、固定ソースをGit対象外の`target/reference/litellm/`へ展開します。
+`source.py verify --reference`で全比較資材を検証できます。
+通常の`inventory.py check`は固定調査表のハッシュと基準版を検証し、`inventory.py check --reference`は外部比較ソースから再生成して照合します。
+全体リリース判定は外部比較ソースも要求し、未配置なら失敗します。
 `SOURCE.json`は元ファイルのハッシュを保持し、記録済みパッチだけ適用・照合します。
 調査表の再生成は`python3 tools/parity/inventory.py generate`です。
 
@@ -71,6 +78,18 @@ cargo run --locked -p llm-unify-proxy -- \
 HTTP本文やAPIキーはログに記録しません。現在のProxyには永続使用量台帳がありません。
 OpenAI Chatの再試行は既存Gatewayから独立しており、429と5xxに既定2回を上限に行います。
 全Router戦略・Fallback・課金記録との整合性を実装したものではありません。
+
+## Webコンソール
+
+Proxyを起動して`http://<listenのアドレス>/ui/`へアクセスします。HTML・CSS・JavaScriptは
+`llm-unify-proxy`バイナリに埋め込み、同じRustプロセスから配信します。Node.js・Pythonサーバーは不要です。
+画面の接続欄にこのProxyのmaster keyを入力すると、`/ui/api/status`をBearer認証で取得します。
+表示するのは公開モデル名、製品バージョン、接続用のAPI経路です。上流URL・API key・設定全体を返しません。
+キーはページのメモリ内のみで使用し、接続解除・ページ離脱で破棄します。
+UIレスポンスは`no-store`、同一originに限定したCSPを設定しています。
+`config/proxy-ui.json`がAPI表示情報・画面通信期限の定義で、ビルド時に読み込みます。
+配布・運用手順は`docs/operations.md`を参照してください。
+この画面は管理APIの完成を意味しません。設定編集・仮想キー管理・使用量・請求額はまだ提供しません。
 
 ## 永続台帳と共有制限の基盤
 
@@ -140,7 +159,7 @@ runnerは試験専用資格情報・DB・Redis・空きポートを生成し、�
 
 ```bash
 uv export --frozen --no-dev --extra proxy --no-emit-workspace \
-  --project vendor/litellm --output-file target/parity-requirements.txt --quiet
+  --project target/reference/litellm --output-file target/parity-requirements.txt --quiet
 uv venv --python 3.12 target/parity-reference-venv
 uv pip sync --python target/parity-reference-venv/bin/python \
   --require-hashes target/parity-requirements.txt

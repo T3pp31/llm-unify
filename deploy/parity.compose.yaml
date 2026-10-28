@@ -13,8 +13,8 @@ services:
       retries: 30
   reference:
     build:
-      context: ..
-      dockerfile: deploy/reference.Dockerfile
+      context: ../target/reference/litellm
+      dockerfile: ../../../deploy/reference.Dockerfile
       args:
         PYTHON_IMAGE: ${PARITY_PYTHON_IMAGE:?}
         UV_VERSION: ${PARITY_UV_VERSION:?}

@@ -163,7 +163,43 @@ pub fn parse_config(yaml: &str) -> Result<Config, Error> {
 
 /// Build only the native inference graph. Never enables the Python host or body logging.
 pub async fn build(config: &Config) -> Result<(Arc<Gateway>, Auth), Error> {
-    let gateway = litellm_gateway::build_inference(config)?;
+    let mut gateway = litellm_gateway::build_inference(config)?;
+    // Native routes expect literal deployment values. Resolve the supported YAML
+    // references once, through the same source used for proxy authentication.
+    let mut resolved = config.clone();
+    let resolve = async |name: &str| {
+        gateway
+            .secrets
+            .get_secret_str(name)
+            .await
+            .map_err(|_| Error::Invalid("deployment environment reference could not be resolved"))?
+            .filter(|value| !value.expose().trim().is_empty())
+            .ok_or(Error::Invalid(
+                "deployment environment reference is missing or empty",
+            ))
+    };
+    for model in &mut resolved.model_list {
+        let params = &mut model.litellm_params;
+        if let Some(name) = params
+            .api_key
+            .as_ref()
+            .and_then(|key| key.expose().strip_prefix("os.environ/"))
+        {
+            params.api_key = Some(resolve(name).await?);
+        }
+        if let Some(name) = params
+            .api_base
+            .as_deref()
+            .and_then(|base| base.strip_prefix("os.environ/"))
+        {
+            params.api_base = Some(resolve(name).await?.expose().to_owned());
+        }
+    }
+    Arc::get_mut(&mut gateway)
+        .ok_or(Error::Invalid(
+            "inference initialized with shared ownership",
+        ))?
+        .models = litellm_gateway_inference::ModelRouter::from_model_list(&resolved.model_list);
     let auth = Auth::from_config(config, gateway.secrets.clone());
     auth.validate().await?;
     Ok((gateway, auth))
@@ -183,6 +219,31 @@ mod tests {
     fn accepts_native_deployment_and_authentication() {
         let config = parse_config(&yaml("")).unwrap();
         assert_eq!(config.model_list[0].model_name, "demo");
+    }
+
+    #[tokio::test]
+    async fn refuses_missing_or_empty_deployment_environment_references_at_startup() {
+        for field in ["api_base", "api_key"] {
+            for environment in [
+                "",
+                "environment_variables:\n  LLM_UNIFY_TEST_UNSET_DEPLOYMENT: ''\n",
+            ] {
+                let input = yaml(environment).replace(
+                    "model: openai/demo",
+                    &format!("model: openai/demo\n      {field}: os.environ/LLM_UNIFY_TEST_UNSET_DEPLOYMENT"),
+                );
+                let config = parse_config(&input).unwrap();
+                let Err(error) = build(&config).await else {
+                    panic!("an unresolved deployment reference must prevent startup");
+                };
+                assert!(matches!(error, Error::Invalid(_)));
+                assert!(
+                    !error
+                        .to_string()
+                        .contains("LLM_UNIFY_TEST_UNSET_DEPLOYMENT")
+                );
+            }
+        }
     }
 
     #[test]

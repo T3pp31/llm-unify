@@ -19,6 +19,11 @@ def baseline():
     return json.loads((ROOT / "config/parity/baseline.json").read_text())
 
 
+def reference_config(config):
+    """Python/UI reference inputs live outside the tracked Rust distribution."""
+    return dict(config, **config.get("reference", {}))
+
+
 def selected(name, config):
     return (
         name not in config["excluded_files"] and not any(name.startswith(p) for p in config["excluded_directories"])
@@ -124,9 +129,11 @@ def verify(config):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=["import", "verify"])
+    parser.add_argument("--reference", action="store_true", help="use the ignored Python comparison source, never vendor it")
     args = parser.parse_args()
     try:
-        count = import_source(baseline()) if args.action == "import" else verify(baseline())
+        config = reference_config(baseline()) if args.reference else baseline()
+        count = import_source(config) if args.action == "import" else verify(config)
     except (OSError, ValueError, KeyError, zipfile.BadZipFile) as error:
         print(str(error), file=sys.stderr)
         return 1

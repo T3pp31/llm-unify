@@ -9,7 +9,7 @@ import subprocess
 import sys
 
 from inventory import generate
-from source import ROOT, baseline, verify
+from source import ROOT, baseline, reference_config, verify
 
 
 def digest(path):
@@ -107,7 +107,7 @@ def evaluate(config, inventory, implementation, evidence, root=ROOT, subject=Non
             else:
                 proof = item["scope_proof"]
                 try:
-                    path = local_file(root / config["destination"], proof.get("path"))
+                    path = local_file(root / reference_config(config)["destination"], proof.get("path"))
                     lines = path.read_text().splitlines()
                     number = proof.get("line")
                     if (not isinstance(number, int) or number < 1 or number > len(lines)

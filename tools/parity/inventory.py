@@ -13,7 +13,7 @@ from pathlib import Path
 import re
 import sys
 
-from source import ROOT, baseline, verify
+from source import ROOT, baseline, reference_config, verify
 
 
 def sha256(path):
@@ -32,6 +32,8 @@ def literal(node):
 
 
 def generate(config):
+    config = reference_config(config)
+    verify(config)
     source = ROOT / config["destination"]
     manifest = json.loads((source / "SOURCE.json").read_text())
     features = {}
@@ -153,16 +155,25 @@ def main():
         return 1
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=["generate", "check"])
+    parser.add_argument("--reference", action="store_true", help="also regenerate and compare against the external reference")
     args = parser.parse_args()
     config = baseline()
     try:
         verify(config)
-        payload = json.dumps(generate(config), ensure_ascii=False, indent=2) + "\n"
         destination = ROOT / config["inventory"]
-        if args.action == "check":
+        if args.action == "check" and not args.reference:
+            if sha256(destination) != config["inventory_sha256"]:
+                raise ValueError("pinned inventory SHA-256 mismatch")
+            payload = destination.read_text()
+            expected = {key: config[key] for key in ["version", "commit", "archive_sha256"]}
+            if json.loads(payload)["baseline"] != expected:
+                raise ValueError("inventory baseline mismatch")
+        else:
+            payload = json.dumps(generate(config), ensure_ascii=False, indent=2) + "\n"
+        if args.action == "check" and args.reference:
             if not destination.exists() or destination.read_text() != payload:
                 raise ValueError("inventory is missing or stale; regenerate it")
-        else:
+        elif args.action == "generate":
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_text(payload)
     except (ValueError, KeyError, OSError) as error:

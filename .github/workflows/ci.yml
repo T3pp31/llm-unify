@@ -2,9 +2,9 @@ name: CI
 on:
   push:
     branches: [main]
-    paths: ["src/**", "crates/**", "vendor/**", "tools/**", "deploy/**", "docs/parity/**", "tests/**", "examples/**", "config/**", "Cargo.toml", "Cargo.lock", ".github/workflows/ci.yml"]
+    paths: ["src/**", "crates/**", "vendor/**", "tools/**", "deploy/**", "docs/**", "tests/**", "examples/**", "config/**", "Cargo.toml", "Cargo.lock", "LICENSE", "THIRD_PARTY_NOTICES.md", ".github/workflows/ci.yml"]
   pull_request:
-    paths: ["src/**", "crates/**", "vendor/**", "tools/**", "deploy/**", "docs/parity/**", "tests/**", "examples/**", "config/**", "Cargo.toml", "Cargo.lock", ".github/workflows/ci.yml"]
+    paths: ["src/**", "crates/**", "vendor/**", "tools/**", "deploy/**", "docs/**", "tests/**", "examples/**", "config/**", "Cargo.toml", "Cargo.lock", "LICENSE", "THIRD_PARTY_NOTICES.md", ".github/workflows/ci.yml"]
   workflow_dispatch:
 permissions:
   contents: read
@@ -100,3 +100,28 @@ jobs:
         with:
           name: storage-foundation-results
           path: target/parity/storage*
+
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build distribution image
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess
+          values = dict(line.split("=", 1) for line in Path("deploy/.env.example").read_text().splitlines() if line and not line.startswith("#"))
+          command = ["docker", "build", "--file", "deploy/proxy.Dockerfile", "--tag", values["LLM_UNIFY_IMAGE"]]
+          for key in ["RUST_IMAGE", "RUNTIME_IMAGE", "BUILD_JOBS"]:
+              command += ["--build-arg", key + "=" + values[key]]
+          subprocess.run(command + ["."], check=True)
+          subprocess.run(["python", "tools/check_container.py", "--image", values["LLM_UNIFY_IMAGE"]], check=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: container-smoke-results
+          path: target/container-smoke.*

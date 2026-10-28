@@ -20,7 +20,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
 
 from gate import project_digest
-from source import ROOT, baseline, verify
+from source import ROOT, baseline, reference_config, verify
 
 
 def available_port():
@@ -61,7 +61,8 @@ def main():
     reference_url = f"http://127.0.0.1:{reference_port}"
     native_url = f"http://127.0.0.1:{native_port}"
     environment = {key: value for key, value in os.environ.items() if key in {"PATH", "HOME", "TMPDIR", "SYSTEMROOT", "SSL_CERT_FILE", "SSL_CERT_DIR"}}
-    environment.update({"PYTHONPATH": os.pathsep.join([str(ROOT / "vendor/litellm"), str(ROOT / "vendor/litellm/litellm-proxy-extras")]),
+    reference_source = ROOT / reference_config(baseline())["destination"]
+    environment.update({"PYTHONPATH": os.pathsep.join([str(reference_source), str(reference_source / "litellm-proxy-extras")]),
                         "LITELLM_RUST": "false", "LITELLM_LOCAL_MODEL_COST_MAP": "True",
                         "PARITY_UPSTREAM_URL": mock_url + "/v1", "PARITY_UPSTREAM_KEY": "synthetic-upstream-key",
                         "PARITY_MASTER_KEY": "sk-" + secrets.token_urlsafe(48),
@@ -85,6 +86,7 @@ def main():
 
     try:
         verify(baseline())
+        verify(reference_config(baseline()))
         # Binding a report to current sources requires building the current binary.
         build_log = work / "build.log"
         with build_log.open("w") as log:
@@ -110,12 +112,12 @@ def main():
             execution["reference"].update(image=args.reference_image, uv_version=args.uv_version,
                 image_id=subprocess.check_output(["docker", "image", "inspect", "--format", "{{.Id}}", args.reference_image], text=True).strip())
             requirements = work / "requirements.txt"
-            subprocess.run(["uv", "export", "--frozen", "--no-dev", "--extra", "proxy", "--no-emit-workspace", "--project", ROOT / "vendor/litellm", "--output-file", requirements, "--quiet"], check=True)
+            subprocess.run(["uv", "export", "--frozen", "--no-dev", "--extra", "proxy", "--no-emit-workspace", "--project", reference_source, "--output-file", requirements, "--quiet"], check=True)
             container_environment = {key: environment[key] for key in ["PARITY_MASTER_KEY", "PARITY_UPSTREAM_KEY", "LITELLM_RUST", "LITELLM_LOCAL_MODEL_COST_MAP"]}
             container_environment.update({"PYTHONPATH": "/reference:/reference/litellm-proxy-extras", "PYTHONDONTWRITEBYTECODE": "1", "CONFIG_FILE_PATH": "/fixture/proxy.yaml",
                                           "PARITY_UPSTREAM_URL": f"http://host.docker.internal:{mock_port}/v1", "PARITY_UV_VERSION": args.uv_version})
             command = ["docker", "run", "--detach", "--pull=never", "--publish", f"127.0.0.1:{reference_port}:4000",
-                       "--add-host", "host.docker.internal:host-gateway", "--volume", f"{ROOT / 'vendor/litellm'}:/reference:ro",
+                       "--add-host", "host.docker.internal:host-gateway", "--volume", f"{reference_source}:/reference:ro",
                        "--volume", f"{ROOT / 'config/parity/proxy.yaml'}:/fixture/proxy.yaml:ro", "--volume", f"{requirements}:/tmp/requirements.txt:ro"]
             for key, value in container_environment.items():
                 command.extend(["--env", key + "=" + value])

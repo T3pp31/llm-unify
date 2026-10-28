@@ -8,19 +8,10 @@
   "archive_root": "litellm-main/",
   "destination": "vendor/litellm",
   "include_directories": [
-    "litellm-rust/",
-    "litellm/",
-    "litellm-proxy-extras/",
-    "litellm_cli/",
-    "ui/litellm-dashboard/",
-    "tests/"
+    "litellm-rust/"
   ],
   "include_files": [
-    "LICENSE",
-    "README.md",
-    "pyproject.toml",
-    "uv.lock",
-    "model_prices_and_context_window.json"
+    "LICENSE"
   ],
   "excluded_directories": [
     "enterprise/"
@@ -88,5 +79,25 @@
     "warmup_seconds": 600,
     "max_rss_growth_ratio": 0.2
   },
-  "source_manifest_sha256": "e7d9ede428e7752387e4b9230bb120fc89ef8a307ddaea44aa75e97fcba14c8f"
+  "source_manifest_sha256": "9daa0539b85a21eca5d0b35ae7e948f3bc3703b3821c39f86b6ef27e2c997daa",
+  "reference": {
+    "destination": "target/reference/litellm",
+    "include_directories": [
+      "litellm-rust/",
+      "litellm/",
+      "litellm-proxy-extras/",
+      "litellm_cli/",
+      "ui/litellm-dashboard/",
+      "tests/"
+    ],
+    "include_files": [
+      "LICENSE",
+      "README.md",
+      "pyproject.toml",
+      "uv.lock",
+      "model_prices_and_context_window.json"
+    ],
+    "source_manifest_sha256": "e7d9ede428e7752387e4b9230bb120fc89ef8a307ddaea44aa75e97fcba14c8f"
+  },
+  "inventory_sha256": "a17574aa53bde02dcf16d9bc2c06bef586bd03568fe5177c354d8ff616810308"
 }

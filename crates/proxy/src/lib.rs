@@ -10,6 +10,7 @@ use llm_unify_engine::{Auth, Config, Gateway};
 use std::sync::Arc;
 
 mod chat;
+mod ui;
 
 pub async fn router(config: &Config) -> Result<Router, llm_unify_engine::Error> {
     let settings = llm_unify_engine::openai::Settings::bundled()
@@ -22,8 +23,11 @@ pub async fn router_with_settings(
     settings: llm_unify_engine::openai::Settings,
 ) -> Result<Router, llm_unify_engine::Error> {
     let (gateway, auth) = llm_unify_engine::build(config).await?;
-    inference_router(gateway, auth, settings)
-        .map_err(|_| llm_unify_engine::Error::Invalid("invalid native HTTP settings"))
+    let ui = ui::router(config, auth.clone())
+        .map_err(|_| llm_unify_engine::Error::Invalid("invalid native UI manifest"))?;
+    Ok(inference_router(gateway, auth, settings)
+        .map_err(|_| llm_unify_engine::Error::Invalid("invalid native HTTP settings"))?
+        .merge(ui))
 }
 
 fn inference_router(
@@ -48,6 +52,10 @@ fn inference_router(
         .with_state(chat)
         .route_layer(axum::middleware::from_fn_with_state(auth, authenticate))
         .fallback_service(fallback)
+        .route(
+            "/health/readiness",
+            get(|| async { Json(serde_json::json!({"status": "ready"})) }),
+        )
         .route(
             "/health/liveliness",
             get(|| async { Json(serde_json::json!({"status": "alive"})) }),
@@ -130,6 +138,49 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(response.status(), 400);
+    }
+
+    #[tokio::test]
+    async fn responses_resolves_deployment_environment_before_sending_upstream() {
+        use serde_json::json;
+        use wiremock::{Mock, MockServer, ResponseTemplate, matchers::*};
+
+        let upstream = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/v1/responses"))
+            .and(header("authorization", "Bearer test-upstream-secret"))
+            .and(body_partial_json(
+                json!({"model":"internal", "input":"hello"}),
+            ))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "id":"resp-fixture", "object":"response", "model":"internal", "status":"completed",
+                "output":[{"type":"message", "content":[{"type":"output_text", "text":"OK"}]}],
+                "usage":{"input_tokens":1, "output_tokens":1, "total_tokens":2}
+            })))
+            .expect(1)
+            .mount(&upstream)
+            .await;
+        let config = llm_unify_engine::parse_config(&format!(
+            "model_list:\n  - model_name: public\n    litellm_params:\n      model: openai/internal\n      api_base: os.environ/UPSTREAM_URL\n      api_key: os.environ/UPSTREAM_KEY\ngeneral_settings:\n  master_key: test-only-key\nenvironment_variables:\n  UPSTREAM_URL: {}/v1\n  UPSTREAM_KEY: test-upstream-secret\n", upstream.uri()
+        )).unwrap();
+        let response = router(&config)
+            .await
+            .unwrap()
+            .oneshot(
+                Request::post("/v1/responses")
+                    .header("authorization", "Bearer test-only-key")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"model":"public","input":"hello"}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), 200);
+        let body = to_bytes(response.into_body(), 65536).await.unwrap();
+        let output: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(output["output"][0]["content"][0]["text"], "OK");
+        assert_eq!(output["usage"]["total_tokens"], 2);
+        assert!(!String::from_utf8_lossy(&body).contains("test-upstream-secret"));
     }
 
     #[tokio::test]

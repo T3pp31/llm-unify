@@ -1,11 +1,33 @@
-# llm-unify
+# LLM Unify
 
-`provider/model` でネイティブ API を切り替える、サーバー・CLI 向けの非同期 Rust SDK です。
-Rust 1.96 以降、Edition 2024、Tokio を使用します。Python LiteLLM 全体の互換実装ではありません。optional な `gateway` feature は OpenAI Chat Completions 互換の HTTP 中継と使用量台帳を提供します。
+LLMゲートウェイと非同期Rust SDK。YAMLで接続先と公開モデル名を設定し、HTTP APIから利用できます。
+Webコンソールでは、登録モデルの検索・モデル名のコピー・API接続情報の確認ができます。
 
-LiteLLM 1.108.0のOSS機能再現を、別コマンド`llm-unify-proxy`と共通実行基盤で開発しています。
-**全機能の再現・製品版の受け入れは未完了です。** PostgreSQL/Redis台帳、管理画面、移行などは未接続です。
-固定ソース・機能調査表・比較試験・完成判定の手順は[互換実装の検証記録](docs/parity/README.md)を参照してください。
+## Dockerで利用する
+
+```sh
+cp deploy/.env.example deploy/.env
+# deploy/.envの管理キー・上流URL・上流キー、deploy/proxy.yamlのモデルを設定
+docker compose --env-file deploy/.env -f deploy/compose.yaml up -d --build
+```
+
+既定では `http://127.0.0.1:4000/ui/` でコンソールを開きます。
+[導入・HTTPS・更新・切り戻しの手順](docs/operations.md)を参照してください。
+配布イメージはソースからビルドします。レジストリへの公開はまだ行っていません。
+
+MITライセンスで商用利用・改変・再配布できます。
+[LICENSE](LICENSE)・[上流コードの出典](THIRD_PARTY_NOTICES.md)を参照してください。
+Python版LiteLLM本体・上流管理画面は同梱しません。
+
+## 提供範囲
+
+現ProxyのWeb画面は設定閲覧用です。利用者別仮想キー・予算制限・使用量集計・モデルの画面編集は未提供です。
+単一の管理キーを共有できる運用者を対象とし、複数テナントの認可・課金機構としては使えません。
+**LiteLLM OSS全機能の再現と製品版の受け入れは未完了です。**
+基準版はLiteLLM 1.108.0。対応状況と試験条件は[互換実装の検証記録](docs/parity/README.md)で管理します。
+
+以下のRust SDKはRust 1.96以降・Edition 2024・Tokioを使用します。
+既存の`llm-unify-gateway`（SQLite台帳付きHTTP中継）は、`llm-unify-proxy`と別コマンドです。
 
 ## 利用例
 
