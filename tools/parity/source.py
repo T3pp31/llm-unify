@@ -42,7 +42,16 @@ def patched(name, data, changes):
         return data
     if digest(data) != patch["upstream_sha256"]:
         raise ValueError("patch source hash mismatch: " + name)
-    for replacement in patch["replacements"]:
+    previous_end = 0
+    edits = patch.get("edits", [])
+    for edit in edits:
+        start, end = edit["start"], edit["end"]
+        if type(start) is not int or type(end) is not int or not previous_end <= start <= end <= len(data):
+            raise ValueError("invalid patch byte range: " + name)
+        previous_end = end
+    for edit in reversed(edits):
+        data = data[:edit["start"]] + edit["after"].encode() + data[edit["end"]:]
+    for replacement in patch.get("replacements", []):
         before, after = replacement["before"].encode(), replacement["after"].encode()
         if data.count(before) != 1:
             raise ValueError("patch context is not unique: " + name)

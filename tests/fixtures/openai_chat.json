@@ -1,1 +1,1 @@
-{"id":"chat_fixture","model":"test-model","choices":[{"index":0,"message":{"role":"assistant","content":"こんにちは"},"finish_reason":"stop"}],"usage":{"prompt_tokens":5,"completion_tokens":2,"total_tokens":7}}
+{"id":"chat_fixture","model":"test-model","choices":[{"index":0,"message":{"role":"assistant","content":"Hello 🌍"},"finish_reason":"stop"}],"usage":{"prompt_tokens":5,"completion_tokens":2,"total_tokens":7}}

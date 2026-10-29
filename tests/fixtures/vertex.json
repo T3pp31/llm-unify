@@ -1,1 +1,1 @@
-{"candidates":[{"index":0,"content":{"role":"model","parts":[{"text":"こんにちは"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":5,"candidatesTokenCount":2,"totalTokenCount":7}}
+{"candidates":[{"index":0,"content":{"role":"model","parts":[{"text":"Hello 🌍"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":5,"candidatesTokenCount":2,"totalTokenCount":7}}

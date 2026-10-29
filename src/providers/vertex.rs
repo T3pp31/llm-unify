@@ -125,7 +125,7 @@ mod tests {
             .user("weather")
             .message(response.into_message())
             .message(Message::tool(ToolResult::new("c1", json!("sunny"))));
-        assert_eq!(p.chat(&request).await.unwrap().output_text(), "こんにちは");
+        assert_eq!(p.chat(&request).await.unwrap().output_text(), "Hello 🌍");
     }
     #[tokio::test]
     async fn vertex_stream_handles_usage_and_completion() {

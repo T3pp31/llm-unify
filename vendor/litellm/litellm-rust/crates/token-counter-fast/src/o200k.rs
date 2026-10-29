@@ -130,7 +130,7 @@ mod tests {
     #[case("", &[])]
     #[case("Hello world", &["Hello", " world"])]
     #[case("camelCase PascalCase ABCdef ABCdeF ABC", &["camel", "Case", " Pascal", "Case", " ABCdef", " ABCde", "F", " ABC"])]
-    #[case("日本ABC ABC日本 日本語abc abc日本語", &["日本", "ABC", " ABC日本", " 日本語abc", " abc日本語"])]
+    #[case("한글ABC ABC한글 한글말abc abc한글말", &["한글", "ABC", " ABC한글", " 한글말abc", " abc한글말"])]
     #[case("\u{301}ABC \u{301}abc \u{301}\u{301}A A\u{301}\u{301} E\u{301}A aE\u{301}", &["\u{301}", "ABC", " \u{301}abc", " \u{301}\u{301}", "A", " A\u{301}\u{301}", " E\u{301}", "A", " a", "E\u{301}"])]
     #[case("ᵃbc ᵃBC Aᵃbc Aᵃ ᵃ' ᵃ's", &["ᵃbc", " ᵃ", "BC", " Aᵃbc", " Aᵃ", " ᵃ", "'", " ᵃ's"])]
     #[case("ǅungla aǅB AǅB Aǅb", &["ǅungla", " a", "ǅB", " AǅB", " Aǅb"])]
@@ -147,7 +147,7 @@ mod tests {
     #[case("\u{a0}abc\u{a0}!", &["\u{a0}abc", "\u{a0}", "!"])]
     #[case("<|endoftext|>", &["<|", "endoftext", "|>"])]
     #[case("İstanbul ΣΊΣΥΦΟΣ Ελληνικά Русский", &["İstanbul", " ΣΊΣΥΦΟΣ", " Ελληνικά", " Русский"])]
-    #[case("日本語 ١٢٣٤", &["日本語", " ", "١٢٣", "٤"])]
+    #[case("한글말 ١٢٣٤", &["한글말", " ", "١٢٣", "٤"])]
     fn scanner_splits_like_the_regex(#[case] text: &str, #[case] expected: &[&str]) {
         assert_eq!(split(text), expected);
     }

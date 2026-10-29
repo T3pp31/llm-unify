@@ -80,7 +80,7 @@ async fn typed_fetch_encodes_parameters_and_validates_rows(
         .and(query_param("param_unsigned", u64::MAX.to_string()))
         .and(query_param("param_float", "12.5"))
         .and(query_param("param_text", "line\\nbreak"))
-        .and(query_param("param_strings", "['a\\'b','雪']"))
+        .and(query_param("param_strings", "['a\\'b','☃']"))
         .and(query_param("readonly", "1"))
         .and(query_param("max_result_rows", "1000"))
         .respond_with(ResponseTemplate::new(200).set_body_string(body))
@@ -94,7 +94,7 @@ async fn typed_fetch_encodes_parameters_and_validates_rows(
         unsigned: u64::MAX,
         float: 12.5,
         text: "line\nbreak".into(),
-        strings: vec!["a'b".into(), "雪".into()],
+        strings: vec!["a'b".into(), "☃".into()],
     };
     let rows = fetch::<TypedQuery>(&client, &connection, &params).await;
     let envelope = fetch_json::<TypedQuery>(&client, &connection, &params).await;

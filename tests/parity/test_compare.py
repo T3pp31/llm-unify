@@ -23,8 +23,8 @@ class ComparatorTests(unittest.TestCase):
         self.assertIn("id", response["body"])
 
     def test_sse_multiline_data_and_crlf_are_decoded_in_order(self):
-        events = sse_events('event: message\r\ndata: {"delta":\r\ndata: "日本語"}\r\n\r\ndata: [DONE]\r\n\r\n')
-        self.assertEqual(events, [{"event": "message", "data": {"delta": "日本語"}}, {"data": "[DONE]"}])
+        events = sse_events('event: message\r\ndata: {"delta":\r\ndata: "English 🌍"}\r\n\r\ndata: [DONE]\r\n\r\n')
+        self.assertEqual(events, [{"event": "message", "data": {"delta": "English 🌍"}}, {"data": "[DONE]"}])
 
     def test_unterminated_sse_is_not_a_complete_event(self):
         self.assertEqual(sse_events('data: {"x":1}'), [])

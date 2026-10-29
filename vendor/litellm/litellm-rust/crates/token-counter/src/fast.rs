@@ -73,7 +73,7 @@ mod tests {
     const TEXTS: [&str; 4] = [
         "",
         "hello world <|endoftext|>",
-        "café 漢字 ع 🙂 line\r\n  indented 123456789",
+        "café 한글 ع 🙂 line\r\n  indented 123456789",
         "<SOS>system<EOT> a\u{301} ﬁ",
     ];
 

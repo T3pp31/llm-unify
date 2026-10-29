@@ -5,7 +5,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let model = std::env::var("LLM_UNIFY_MODEL")?;
     let client = Client::from_env()?;
     let response = client
-        .chat(ChatRequest::new(model).user("Rust の特徴を教えてください。"))
+        .chat(ChatRequest::new(model).user("What are the main features of Rust?"))
         .await?;
     println!("{}", response.output_text());
     Ok(())

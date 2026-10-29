@@ -1,20 +1,20 @@
-# CI 設計
+# CI design
 
-更新日: 2026-10-25
+Updated: 2026-10-25
 
-## 目的とトリガー
+## Purpose and triggers
 
-既存の SDK 契約を壊さないことを、実 API・秘密情報・課金なしで検証する。
-実体は [ci.yml](../.github/workflows/ci.yml) に定義する。
+Verify that existing SDK contracts remain intact without live APIs, secrets, or paid requests.
+The workflow is defined in [ci.yml](../.github/workflows/ci.yml).
 
-- Pull Request と main への Push で実行する。
-- `src/**`、`tests/**`、`examples/**`、`config/**`、Cargo 関連ファイル、workflow 自身の変更を検出する。
-- `docs/**` や README のみの変更は対象外とする。
-- `workflow_dispatch` では macOS・Windows の確認も実行する。
+- Run on pull requests and pushes to main.
+- Detect changes to `src/**`, `tests/**`, `examples/**`, `config/**`, Cargo files, and the workflow itself.
+- Documentation-only changes under `docs/**` or the README are outside the original trigger scope.
+- `workflow_dispatch` also runs macOS and Windows checks.
 
-## 検証ジョブ
+## Verification jobs
 
-通常の test ジョブは Ubuntu / Rust stable で以下を実行する。
+The regular test job runs the following on Ubuntu / Rust stable:
 
 ```bash
 cargo fmt --all -- --check
@@ -23,33 +23,33 @@ cargo test --locked --all-features --all-targets
 cargo test --locked --doc --all-features
 ```
 
-`features` ジョブは MSRV の Rust 1.96.0 を使用し、追加 feature なし、bedrock のみ、vertex のみ、opentelemetry のみ、gateway のみを `cargo check --locked --no-default-features --features ... --all-targets` で検証する。all-features の検証と組み合わせ、feature 分離のコンパイル漏れを検出する。
+The `features` job uses the MSRV, Rust 1.96.0, and checks no additional features, bedrock only, vertex only, opentelemetry only, and gateway only with `cargo check --locked --no-default-features --features ... --all-targets`. Together with the all-features checks, this detects compilation gaps in feature isolation.
 
-手動実行の portability ジョブは macOS・Windows の stable で全 feature・全 target のテストを実行する。
+The manually triggered portability job tests all features and targets on stable Rust on macOS and Windows.
 
-## テスト対象
+## Test coverage
 
-- Provider ごとの送受信変換、Tool Call / Result、署名・固有情報の保持。
-- テキスト Streaming、Tool 引数の断片、UTF-8・SSE の分割、途中切断。
-- 429 Retry、試行上限、Fallback、重み付き負荷分散、障害状態と復帰。
-- Capabilities、設定、認証不足、機密情報の非露出。
-- Cache の TTL・容量・Client 間の隔離・Tool Call 応答の再利用。
-- Bedrock の AWS 署名とバイナリ EventStream、Vertex の認証ヘッダーと会話履歴。
-- Gateway の HTTP/SSE 中継、認証、SQLite 永続化、料金表の保存、日別・モデル別集計、使用量不明・上流障害・途中切断・保存障害。
+- Per-provider request/response conversion, tool calls/results, and preservation of signatures and provider-specific information.
+- Text streaming, fragmented tool arguments, UTF-8/SSE boundaries, and interrupted streams.
+- HTTP 429 retry, attempt limits, fallback, weighted load balancing, failure state, and recovery.
+- Capabilities, configuration, missing authentication, and secret non-disclosure.
+- Cache TTL/capacity, isolation between clients, and reuse of tool-call responses.
+- Bedrock AWS signing and binary EventStream, Vertex authentication headers and conversation history.
+- Gateway HTTP/SSE forwarding, authentication, SQLite persistence, pricing snapshots, daily/model summaries, unknown usage, upstream failures, interruptions, and persistence failures.
 
-Fixture は公式資料に基づく合成データで、出典は [Fixture README](../tests/fixtures/README.md) に記録する。実サービスの疎通は examples を使って明示実行し、通常 CI には追加しない。
+Fixtures are synthetic data based on official documentation; sources are recorded in the [fixture README](../tests/fixtures/README.md). Live service checks are run explicitly with examples and are not added to normal CI.
 
-## 権限とキャッシュ
+## Permissions and caching
 
-workflow の権限は `contents: read` のみ。シークレットは使用しない。
-Cargo registry・Git dependencies・target をキャッシュし、OS・toolchain/feature・Cargo.lock のハッシュでキーを分離する。依存関係の解決は Cargo.lock をコミットし、`--locked` で固定する。
+The workflow has only `contents: read` permission and uses no secrets.
+Cache the Cargo registry, Git dependencies, and target directory, separating keys by OS, toolchain/feature, and Cargo.lock hash. Commit Cargo.lock and use `--locked` to pin dependency resolution.
 
-## 失敗時
+## Failure handling
 
-失敗したステップとテスト名を確認し、同じコマンドでローカル再現する。
-外部 Provider の API 仕様変更が疑われる場合は公式資料を確認し、確認日を更新して Fixture と Adapter を修正する。
+Check the failed step and test name, then reproduce locally with the same command.
+If an external provider API change is suspected, check official documentation, update the verification date, and revise the fixture and adapter.
 
-## Gateway のローカル検証
+## Local gateway verification
 
 ```bash
 cargo test --locked --features gateway --test gateway
@@ -57,6 +57,6 @@ cargo test --locked --all-features --all-targets
 cargo test --locked --doc --all-features
 ```
 
-Gateway のテストはローカルのモック上流と一時 SQLite を使用し、再接続時の永続性、料金表の変更、不明値、HTTP/SSE 障害、クライアント切断、同時実行上限、保存障害を検証する。実際の Ollama の起動・推論は含まない。
+Gateway tests use a local mock upstream and temporary SQLite databases to verify persistence across reconnections, price changes, unknown values, HTTP/SSE failures, client disconnects, concurrency limits, and persistence failures. They do not start Ollama or perform actual inference.
 
-カバレッジ計測は現状の CI に未導入。必要な環境に `cargo-llvm-cov` と toolchain に対応する `llvm-tools-preview` を導入した後、`cargo llvm-cov --all-features --html` で HTML レポートを取得できる。今回の検証ではカバレッジ率を計測していない。
+Coverage measurement is not integrated into CI. After installing `cargo-llvm-cov` and the toolchain’s `llvm-tools-preview`, run `cargo llvm-cov --all-features --html` to generate an HTML report. Coverage percentages were not measured during this verification.

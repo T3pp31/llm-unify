@@ -2,23 +2,25 @@
 
 ## Unreleased
 
-- LiteLLM 1.108.0の固定ソース、上流Rust/UI、改変履歴とハッシュ検証を追加。依存の競合は記録済みパッチで解消。
-- 機能調査表の自動生成と、未分類・未実装・比較漏れ・実API未実施・負荷試験不足を拒否するリリース判定を追加。
-- `llm-unify-engine` / `llm-unify-proxy` をWorkspaceへ追加。OpenAI ChatのHTTP/SSE、Tool履歴、Usage、429の比較試験を追加。LiteLLM OSS全機能の再現は未完了。
-- `llm-unify-storage` にPostgreSQLの試行別台帳・複数予算の原子的予約/精算と、Redisの共有レート制限・テナント別Cacheを追加。実DBの並行・強制停止/復旧試験を追加。Proxy課金経路への接続は未完了。
-- 比較結果のケース名・suite・接続先と現ソースの照合、部分成果の証跡登録、参照版の実行環境記録を追加。部分試験から全体の受け入れ成功へ昇格させない。
+- Translate the repository documentation, web console, and examples into English. Keep multibyte UTF-8 coverage in streaming tests.
+- Remove Japanese text from upstream test data and generators, regenerate tokenizer/Python expectations, and record reproducible byte-range patches while preserving Unicode coverage.
+- Add pinned LiteLLM 1.108.0 source, upstream Rust/UI, patch history, and hash verification. Resolve dependency conflicts through recorded patches.
+- Add automatic feature inventory generation and a release gate that rejects unclassified or unimplemented features, missing comparisons, untested live APIs, and insufficient load tests.
+- Add `llm-unify-engine` / `llm-unify-proxy` to the workspace. Add OpenAI Chat HTTP/SSE, tool history, usage, and 429 differential tests. Full LiteLLM OSS parity remains incomplete.
+- Add a PostgreSQL per-attempt ledger and atomic reservation/settlement across multiple budgets, plus Redis shared rate limits and tenant-scoped caching in `llm-unify-storage`. Add real-database concurrency and forced-stop/recovery tests. Integration with proxy billing remains incomplete.
+- Validate comparison case names, suites, endpoints, and current source identity; register partial evidence and record reference runtimes. Partial tests cannot establish full acceptance.
 
-- Streaming 開始失敗と Chat / Embeddings の総時間上限によるタイムアウトを障害回数へ反映し、接続先の一時除外・復帰を修正。
-- Client 経由の Streaming 最終応答に料金概算と、取得可能な上流 HTTP リクエスト ID を保持。
-- Gateway の失敗応答にも台帳と同じ `x-request-id` を付与し、HTTP・通信・SSE エラーの照合を検証。
-- optional `gateway` feature と `llm-unify-gateway` バイナリを追加。OpenAI Chat Completions 互換の HTTP/SSE 中継、Bearer 認証、SQLite の使用量台帳、料金表の保存、日別・モデル別集計に対応。
-- Gateway の使用量不明・料金未設定・途中切断・保存障害の検証を追加し、CI に gateway 単独構成を追加。
+- Count streaming startup failures and Chat / Embeddings total-timeout failures toward endpoint failure thresholds, fixing temporary exclusion and recovery.
+- Preserve estimated cost and available upstream HTTP request IDs in final responses collected through client streaming.
+- Attach the ledger’s `x-request-id` to failed gateway responses and verify correlation across HTTP, transport, and SSE errors.
+- Add the optional `gateway` feature and `llm-unify-gateway` binary with OpenAI Chat Completions-compatible HTTP/SSE forwarding, bearer authentication, a SQLite usage ledger, pricing snapshots, and daily/model summaries.
+- Add gateway tests for unknown usage, missing prices, interrupted streams, and persistence failures; add a gateway-only CI configuration.
 
-- Client、共通 Request / Response、Capabilities、ProviderMetadata を追加。
-- OpenAI、Anthropic、Gemini、OpenAI-compatible、Ollama のネイティブ接続を追加。
-- Streaming、Tool Calling、Structured Output、Reasoning Options、画像入力を追加。
-- Retry/Fallback、Alias、重み付き負荷分散、障害接続先の一時除外を追加。
-- Embeddings、任意の料金計算、Observer／OpenTelemetry を追加。
-- optional feature として Bedrock Converse、Vertex Gemini を追加。
-- 公開 Provider / Cache Trait と TTL・容量制限付きメモリー Cache を追加。
-- 実サービスを呼ばない契約テストと CI を追加。
+- Add the client, shared request/response types, capabilities, and provider metadata.
+- Add native connections to OpenAI, Anthropic, Gemini, OpenAI-compatible endpoints, and Ollama.
+- Add streaming, tool calling, structured output, reasoning options, and image input.
+- Add retry/fallback, aliases, weighted load balancing, and temporary exclusion of failing endpoints.
+- Add embeddings, optional cost estimation, observers, and OpenTelemetry.
+- Add Bedrock Converse and Vertex Gemini as optional features.
+- Add public provider/cache traits and an in-memory cache with TTL and capacity limits.
+- Add contract tests and CI without live service calls.

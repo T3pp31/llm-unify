@@ -95,7 +95,7 @@ async fn all_native_text_streams_complete() {
             format!(
                 "{}data: [DONE]\n\n",
                 sse(&[
-                    json!({"choices":[{"index":0,"delta":{"content":"こんにちは"},"finish_reason":null}]}),
+                    json!({"choices":[{"index":0,"delta":{"content":"Hello 🌍"},"finish_reason":null}]}),
                     json!({"choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}),
                     json!({"choices":[],"usage":{"prompt_tokens":5,"completion_tokens":2,"total_tokens":7}})
                 ])
@@ -106,7 +106,7 @@ async fn all_native_text_streams_complete() {
             Some("responses"),
             "/responses",
             sse(&[
-                json!({"type":"response.output_text.delta","output_index":0,"content_index":0,"delta":"こんにちは"}),
+                json!({"type":"response.output_text.delta","output_index":0,"content_index":0,"delta":"Hello 🌍"}),
                 json!({"type":"response.completed","response":{"status":"completed","usage":{"input_tokens":5,"output_tokens":2,"total_tokens":7}}}),
             ]),
         ),
@@ -117,7 +117,7 @@ async fn all_native_text_streams_complete() {
             sse(&[
                 json!({"type":"message_start","message":{"usage":{"input_tokens":5,"output_tokens":0}}}),
                 json!({"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}),
-                json!({"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"こんにちは"}}),
+                json!({"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hello 🌍"}}),
                 json!({"type":"content_block_stop","index":0}),
                 json!({"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":2}}),
                 json!({"type":"message_stop"}),
@@ -130,7 +130,7 @@ async fn all_native_text_streams_complete() {
             sse(&[
                 json!({"event_type":"interaction.created","interaction":{"status":"in_progress"}}),
                 json!({"event_type":"step.start","index":0,"step":{"type":"model_output"}}),
-                json!({"event_type":"step.delta","index":0,"delta":{"type":"text","text":"こんにちは"}}),
+                json!({"event_type":"step.delta","index":0,"delta":{"type":"text","text":"Hello 🌍"}}),
                 json!({"event_type":"step.stop","index":0}),
                 json!({"event_type":"interaction.completed","interaction":{"status":"completed","usage":{"total_input_tokens":5,"total_output_tokens":2,"total_tokens":7}}}),
             ]),
@@ -156,7 +156,7 @@ async fn all_native_text_streams_complete() {
             .collect_response()
             .await
             .unwrap();
-        assert_eq!(result.output_text(), "こんにちは");
+        assert_eq!(result.output_text(), "Hello 🌍");
         assert_eq!(result.finish_reason, FinishReason::Stop);
         assert_eq!(result.usage.unwrap().total_tokens, Some(7));
         assert_eq!(result.cost_usd, Some(16.0 / 1_000_000.0));
@@ -290,7 +290,7 @@ async fn sse_chunk_and_utf8_boundaries_are_supported() {
     let bytes = format!(
         "{}data: [DONE]\r\n\r\n",
         sse(&[
-            json!({"choices":[{"index":0,"delta":{"content":"日本語"},"finish_reason":null}]}),
+            json!({"choices":[{"index":0,"delta":{"content":"English 🌍"},"finish_reason":null}]}),
             json!({"choices":[{"index":0,"delta":{},"finish_reason":"stop"}]})
         ])
     )
@@ -319,7 +319,7 @@ async fn sse_chunk_and_utf8_boundaries_are_supported() {
         .collect_response()
         .await;
     task.await.unwrap();
-    assert_eq!(response.unwrap().output_text(), "日本語");
+    assert_eq!(response.unwrap().output_text(), "English 🌍");
 }
 #[tokio::test]
 async fn oversized_unterminated_sse_is_rejected() {

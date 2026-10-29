@@ -6,7 +6,7 @@ use std::io::{self, Write};
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let model = std::env::var("LLM_UNIFY_MODEL")?;
     let mut events = Client::from_env()?
-        .chat_stream(ChatRequest::new(model).user("短い物語を書いてください。"))
+        .chat_stream(ChatRequest::new(model).user("Write a short story."))
         .await?;
     while let Some(event) = events.next().await {
         if let ChatEvent::TextDelta { delta, .. } = event? {

@@ -1,73 +1,73 @@
-# Rust版 LiteLLM SDK 設計
+# Rust LiteLLM SDK design
 
-作成日: 2026-10-25
+Created: 2026-10-25
 
-実装状況: 以下のロードマップ各段階を単一 Crate に実装。Crate のバージョンは初期開発版 `0.1.0`。API の実例・制約・feature は [README](../README.md) を参照。CI は実 API を呼ばず、合成 Fixture とモック HTTP を使用する。
+Implementation status: all roadmap stages below were implemented in a single crate. The crate is an initial development release, `0.1.0`. See the [README](../README.md) for actual API examples, constraints, and features. CI uses synthetic fixtures and mock HTTP without calling live APIs.
 
-2026-10-26 追記: ローカル LLM の中継と継続的な使用量記録のため、optional な `gateway` feature を追加した。OpenAI Chat Completions 互換の HTTP/SSE 中継、Bearer 認証、SQLite 台帳、日別・モデル別の集計 API を提供する。既存 SDK の各ネイティブ API の変換・Router・Cache とは独立して動作し、HTTP 中継での他社 API 形式変換・自動 Retry・Fallback・Cache は含めない。使用量・料金が不明な場合は `null` とし、料金表は記録時点の値を保存する。これは LiteLLM 全機能の互換実装を意味しない。
+Update, 2026-10-26: an optional `gateway` feature was added for local LLM forwarding and persistent usage recording. It provides OpenAI Chat Completions-compatible HTTP/SSE forwarding, bearer authentication, a SQLite ledger, and daily/model summary APIs. It operates independently of the existing SDK’s native API conversions, router, and cache. HTTP forwarding does not translate other providers’ API formats or provide automatic retry, fallback, or caching. Unknown usage/cost is `null`; pricing is saved as a snapshot at recording time. This does not establish full LiteLLM feature parity.
 
-## 1. 概要
+## 1. Overview
 
-本プロジェクトは、LiteLLM の使いやすさを維持しながら、Rust の型安全性と拡張性を備えた LLM SDK を提供する。
+This project provides an LLM SDK with Rust’s type safety and extensibility while retaining LiteLLM’s ease of use.
 
-中心的な特徴は次の通りである。
+Core characteristics:
 
-- `provider/model` 形式のモデル指定
-- 型安全な統一 Request / Response
-- 各プロバイダーのネイティブ API への接続
-- Streaming、Tool Calling、Retry、Fallback の標準サポート
-- 必要最小限の依存構成
-- プロバイダー独自機能を失わない拡張性
+- Model selection with `provider/model`.
+- Unified, type-safe requests and responses.
+- Connections to each provider’s native API.
+- Built-in streaming, tool calling, retry, and fallback.
+- Minimal dependencies.
+- Extensibility that preserves provider-specific features.
 
-## 2. スコープ
+## 2. Scope
 
-### 2.1 作るもの
+### 2.1 Included
 
-LiteLLM 風の公開 API を持ち、プロバイダーごとの Adapter を内部で切り替える SDK を作る。
+Build an SDK with a LiteLLM-style public API that internally selects provider adapters.
 
-初期の中心機能は次の通りである。
+Initial core features:
 
 - Chat API
 - Streaming
-- Tool Calling
+- Tool calling
 - Retry
 - Fallback
-- Capability Validation
+- Capability validation
 
-### 2.2 作らないもの
+### 2.2 Excluded
 
-以下は初期スコープから除外する。
+The following are outside the initial scope:
 
-- Agent フレームワーク
+- Agent frameworks
 - RAG
-- Vector Store
-- SDK 本体での HTTP Proxy（追加の optional gateway の範囲は冒頭追記を参照）
-- 管理画面
+- Vector stores
+- An HTTP proxy in the SDK core (see the opening update for the additional optional gateway).
+- An administration UI
 
-ライブラリの責務は「LLM API を安全かつ一貫したインターフェースで呼び出す」までに限定する。Router と Cache は利用者が明示的に設定する追加機能とし、直接呼び出しの利用に必須としない。Router はプロセス内の重み付きラウンドロビン、Retry/Fallback、障害接続先の一時除外を提供する。Cache は既定で無効にする。
+The library’s responsibility is limited to calling LLM APIs safely through a consistent interface. Routing and caching are optional features configured explicitly by users, rather than prerequisites for direct calls. The router provides in-process weighted round-robin, retry/fallback, and temporary exclusion of failing endpoints. Caching is disabled by default.
 
-## 3. 競合との差別化
+## 3. Differentiation
 
-2026年10月時点で、Rust にはすでに複数の LLM 用ライブラリが存在する。
+As of October 2026, Rust already has several LLM libraries.
 
-| ライブラリ | 特徴 |
+| Library | Characteristics |
 | --- | --- |
-| genai | 25以上のプロバイダーと統一 API、ネイティブプロトコルをサポート |
-| Rig | LLM アプリ、Agent、Tools、RAG などを扱うフレームワーク |
-| async-openai | OpenAI 向けの型付きクライアント |
+| genai | Unified API and native protocols for over 25 providers |
+| Rig | Framework for LLM applications, agents, tools, and RAG |
+| async-openai | Typed OpenAI client |
 
-単に「OpenAI・Anthropic・Gemini を同じ API で呼べる」という機能だけでは差別化が弱い。本プロジェクトは次の三点を重視する。
+Calling OpenAI, Anthropic, and Gemini through the same API alone offers limited differentiation. This project focuses on three points:
 
-1. **Provider Agnostic**: LiteLLM 風の `provider/model` 指定を維持する。
-2. **Rust Native**: Rust の型、エラー、非同期設計に自然に沿う。
-3. **Minimal Core**: Agent や RAG を含めず、LLM API 呼び出しのための最小コアを安定させる。
+1. **Provider agnostic**: retain LiteLLM-style `provider/model` selection.
+2. **Rust native**: follow Rust’s types, errors, and asynchronous design naturally.
+3. **Minimal core**: stabilize the smallest core needed for LLM API calls, without agents or RAG.
 
-## 4. アーキテクチャ
+## 4. Architecture
 
-公開 API は LiteLLM 風に保ち、内部のデータモデルは汎用的な Canonical Data Model とする。
+Keep the public API in a LiteLLM style while using a general canonical data model internally.
 
 ```text
-公開 API
+Public API
   Client / ChatRequest / ChatResponse
 
 Canonical Data Model
@@ -83,13 +83,13 @@ Shared HTTP Transport
   reqwest / tokio / TLS / Timeout
 ```
 
-各 Adapter は、共通データモデルとプロバイダー固有 JSON、およびストリーミングイベントを相互変換する。これにより、OpenAI Responses API や Gemini Interactions API に新しいフィールドが追加されても、公開インターフェース全体を大きく変更せずに対応できる。
+Each adapter converts between the common data model, provider-specific JSON, and streaming events. This allows support for new fields in OpenAI Responses or Gemini Interactions without major changes to the entire public interface.
 
-重要な原則は、共通化できない情報を捨てずに保持することである。Gemini 固有の署名など、履歴の再送に必要な情報は ContentBlock の Metadata に残す。応答の安全性情報などは ChatResponse.provider_metadata に読み取り専用で保持し、次のターンへ自動転送しない。
+Preserve information that cannot be generalized. Keep metadata required for replaying history, such as Gemini-specific signatures, in content block metadata. Retain response safety information as read-only `ChatResponse.provider_metadata`, without automatically forwarding it to the next turn.
 
-## 5. 公開 API
+## 5. Public API
 
-### 5.1 利用イメージ
+### 5.1 Example
 
 ```rust
 use llm_unify::{Client, ChatRequest};
@@ -102,7 +102,7 @@ async fn main() -> anyhow::Result<()> {
         .chat(
             ChatRequest::new("anthropic/claude-sonnet-5")
                 .system("You are a helpful assistant.")
-                .user("Rustの魅力を教えて")
+                .user("What makes Rust a compelling language?")
                 .max_output_tokens(1024),
         )
         .await?;
@@ -113,7 +113,7 @@ async fn main() -> anyhow::Result<()> {
 }
 ```
 
-モデルを切り替える場合は、基本的にモデル指定を書き換えるだけでよい。
+Switching models generally requires changing only the model identifier.
 
 ```text
 openai/gpt-6-astra
@@ -122,9 +122,9 @@ gemini/gemini-3.8-flash
 ollama/my-local-model
 ```
 
-ただし、モデルが対応していないオプションを互換機能と見なしてはならない。対応しない機能は明示的にエラーにする。
+Do not treat options unsupported by a model as compatible features. Unsupported features must return explicit errors.
 
-## 6. Rust の型設計
+## 6. Rust type design
 
 ### 6.1 ChatRequest
 
@@ -157,21 +157,21 @@ pub struct ChatResponse {
     pub content: Vec<ContentBlock>,
     pub usage: Option<TokenUsage>,
     pub finish_reason: FinishReason,
-    // 実装では deployment、cache_hit、cost_usd、request_id も保持する。
+    // The implementation also retains deployment, cache_hit, cost_usd, and request_id.
 }
 ```
 
-この設計の狙いは次の三点である。
+This design has three goals:
 
-1. Message の内容を文字列に限定しない。Tool Calling や画像入力を自然に表現できる。
-2. プロバイダー固有情報を保持する。Gemini の署名や他プロバイダーの特殊フィールドを次のターンに渡せる。
-3. 将来拡張を考慮する。enum には `#[non_exhaustive]` を付与し、互換性のある形で種類を追加できる。
+1. Avoid limiting message content to strings, allowing natural representations of tool calls and image input.
+2. Preserve provider-specific information, passing Gemini signatures and other providers’ special fields to the next turn.
+3. Allow future extension: mark enums `#[non_exhaustive]` so variants can be added compatibly.
 
-`ProviderMetadata` は単なる汎用 JSON ではなく、送信元プロバイダーの識別子を持たせる。これにより、異なるプロバイダーへの誤送信を防止する。
+`ProviderMetadata` carries the originating provider’s identifier rather than being arbitrary JSON alone. This prevents accidental forwarding to a different provider.
 
-## 7. Provider Trait
+## 7. Provider trait
 
-公開 API とは別に、Provider Adapter 実装のための Trait を定義する。
+Define a trait for provider adapter implementations separately from the public API.
 
 ```rust
 #[async_trait]
@@ -188,27 +188,27 @@ pub trait Provider {
 }
 ```
 
-初期実装では `async_trait` を使う。これは動的ディスパッチしやすくするためである。将来的に静的ディスパッチが必要になった場合には、内部実装を最適化できる。
+The initial implementation uses `async_trait` to support dynamic dispatch easily. The internals can be optimized if static dispatch becomes necessary later.
 
 ## 8. Capabilities
 
-各モデルの対応状況をメタデータとして扱う。
+Represent each model’s support as metadata.
 
-| Capability | 内容 |
+| Capability | Meaning |
 | --- | --- |
-| Streaming | ストリーミング応答に対応しているか |
-| Tool Calling | Tool Calling に対応しているか |
-| Image Input | 画像入力に対応しているか |
-| Structured Output | JSON Schema 等による構造化出力に対応しているか |
-| Reasoning Options | 推論系オプションに対応しているか |
+| Streaming | Whether streaming responses are supported |
+| Tool Calling | Whether tool calling is supported |
+| Image Input | Whether image input is supported |
+| Structured Output | Whether structured output through JSON Schema or equivalent is supported |
+| Reasoning Options | Whether reasoning options are supported |
 
-`temperature` や `max_output_tokens` などのパラメーターも、モデルごとの対応状況を検証する。
+Also validate per-model support for parameters such as `temperature` and `max_output_tokens`.
 
-未知のモデルについては、サポート有無を断定しない。明示的に提供された Capabilities を優先し、オプションを勝手に破棄しない。
+For unknown models, do not assume support or lack of support. Prefer explicitly supplied capabilities and do not silently discard options.
 
-## 9. Streaming 設計
+## 9. Streaming design
 
-Streaming は本 SDK の重要機能として設計する。プロバイダー固有のイベントを、共通の `ChatEvent` に変換する。
+Streaming is a core SDK feature. Convert provider-specific events to shared `ChatEvent` values.
 
 ```rust
 pub enum ChatEvent {
@@ -222,122 +222,122 @@ pub enum ChatEvent {
 }
 ```
 
-実装では次の二つを分離する。
+Separate two components:
 
 ```text
 Stream Decoder
-  プロバイダー固有イベントを ChatEvent へ変換する
+  Convert provider-specific events to ChatEvent
 
 Stream Accumulator
-  イベントを蓄積し、最終的な ChatResponse を組み立てる
+  Accumulate events and construct the final ChatResponse
 ```
 
-Tool Calling の引数は途中で不完全な JSON になり得る。そのため、delta 単位で完全な JSON としてパースしない。
+Tool arguments may be incomplete JSON while streaming. Do not parse each delta as a complete JSON value.
 
-ストリームの途中切断は成功として扱わない。呼び出し側には、部分的な出力が存在することを伝えるエラーを返す。
+Do not treat an interrupted stream as success. Return an error informing the caller that partial output exists.
 
-## 10. エラー処理と信頼性
+## 10. Errors and reliability
 
-| エラー | 扱い |
+| Error | Meaning |
 | --- | --- |
-| InvalidRequest | 共通型またはプロバイダー制約として不正なリクエスト |
-| UnsupportedOption | モデルまたはプロバイダーが対応していない機能 |
-| AuthError | API キー不足、無効な認証情報 |
-| RateLimitError | レート制限による失敗 |
-| ProviderError | プロバイダーが返した実行時エラー |
-| TransportError | 通信障害、タイムアウト |
-| StreamInterrupted | ストリームの途中終了 |
+| InvalidRequest | Request violates common types or provider constraints |
+| UnsupportedOption | Model or provider does not support the feature |
+| AuthError | Missing API key or invalid credentials |
+| RateLimitError | Rate-limit failure |
+| ProviderError | Runtime error returned by the provider |
+| TransportError | Network failure or timeout |
+| StreamInterrupted | Stream terminated prematurely |
 
-Retry は共通 HTTP 層に近い場所で扱う。対象は原則として次の通りである。
+Handle retries near the shared HTTP layer. Eligible failures generally include:
 
 - HTTP 429
-- 限定的な HTTP 5xx
-- 再試行可能な通信障害
+- Selected HTTP 5xx responses
+- Retryable transport failures
 
-ただし、ストリーム出力を利用者へ一度でも返した後は、透過的な自動 Retry を行わない。重複出力や Tool Call の二重実行を防ぐためである。
+After any streaming output has been delivered to the caller, disable transparent automatic retries to prevent duplicate output or repeated tool execution.
 
-Client は内部で HTTP 接続を共有し、`Clone + Send + Sync` を基本とする。API キーは Client ごとの設定に閉じ込め、ログに出力しない。
+The client shares HTTP connections internally and is designed for `Clone + Send + Sync`. API keys are scoped to each client’s configuration and are not logged.
 
-## 11. ディレクトリ構成
+## 11. Directory structure
 
-初期は単一 Crate 内のモジュールで開始する。
+Start with modules in a single crate.
 
 ```text
 llm-unify/
   Cargo.toml / Cargo.lock
-  config/          # defaults.toml、capabilities.toml、pricing.toml、example.toml
+  config/          # defaults.toml, capabilities.toml, pricing.toml, example.toml
   src/
     lib.rs / client.rs / config.rs / error.rs
     types.rs / registry.rs / capabilities.rs / stream.rs
     router.rs / cache.rs / embeddings.rs / observability.rs
     transport.rs
-    providers/     # openai、anthropic、gemini、bedrock、vertex
+    providers/     # openai, anthropic, gemini, bedrock, vertex
   tests/
-    fixtures/      # 合成 Fixture と出典
-    contract/      # 共通契約・モック通信
+    fixtures/      # Synthetic fixtures and sources
+    contract/      # Shared contracts and mock transport
   examples/
   .github/workflows/ci.yml
 ```
 
-## 12. ロードマップ
+## 12. Roadmap
 
-### 第1段階（当初の v0.1）
+### Stage 1 (originally v0.1)
 
-| 項目 | 内容 |
+| Area | Content |
 | --- | --- |
-| Core | Client、共通メッセージ型 |
+| Core | Client and common message types |
 | Provider | OpenAI Chat / Responses |
-| Streaming | テキスト Streaming |
-| Error | エラー変換 |
+| Streaming | Text streaming |
+| Error | Error conversion |
 
-### 第2段階（当初の v0.2）
+### Stage 2 (originally v0.2)
 
-| 項目 | 内容 |
+| Area | Content |
 | --- | --- |
-| Provider | Anthropic Messages、Gemini Interactions API |
-| Tool Calling | Tool Calling と Tool Result の往復 |
-| Metadata | プロバイダー固有メタデータの保持 |
-| Structured Output | JSON Schema による構造化出力 |
+| Provider | Anthropic Messages, Gemini Interactions API |
+| Tool Calling | Tool call and tool result round trips |
+| Metadata | Preservation of provider-specific metadata |
+| Structured Output | Structured output through JSON Schema |
 
-### 第3段階（当初の v0.3）
+### Stage 3 (originally v0.3)
 
-| 項目 | 内容 |
+| Area | Content |
 | --- | --- |
-| Router | Retry / Fallback、重み付きラウンドロビン、障害管理 |
-| Alias | モデルエイリアス |
+| Router | Retry/fallback, weighted round-robin, failure management |
+| Alias | Model aliases |
 | Embeddings | Embeddings API |
-| Observability | Token Usage / Cost、OpenTelemetry 連携 |
+| Observability | Token usage/cost and OpenTelemetry integration |
 
-### 第4段階（当初の v0.4 以降）
+### Stage 4 (originally v0.4 and later)
 
-| 項目 | 内容 |
+| Area | Content |
 | --- | --- |
-| Multimodal | 画像などのマルチモーダル入力 |
-| Provider | optional feature の Bedrock Converse / Vertex Gemini |
-| Plugin | Rust Provider Trait の登録 API（動的ロードは対象外） |
-| Cache | Cache Trait と TTL・容量制限付きメモリー Cache。Tool Call 応答も対象とし cache_hit を通知 |
+| Multimodal | Image and other multimodal input |
+| Provider | Optional Bedrock Converse / Vertex Gemini features |
+| Plugin | Registration API for Rust provider traits; dynamic loading is outside the scope |
+| Cache | Cache trait and in-memory cache with TTL/capacity limits, including tool-call responses and cache_hit reporting |
 
-## 13. テスト方針
+## 13. Testing strategy
 
-各段階で Provider ごとの公開仕様に基づく合成 Fixture と共通契約テストを実行する。実レスポンスを追加する際は秘密情報を除去し、取得日・API バージョン・出典を記録する。クラウド接続は偽の認証情報とローカル HTTP により検証する。
+At each stage, run synthetic fixtures based on each provider’s public specifications and shared contract tests. When adding real responses, remove secrets and record the capture date, API version, and source. Verify cloud connections with fake credentials and local HTTP.
 
-特に次の項目を重視する。
+Focus on:
 
-1. Tool Call の往復
-2. ストリーム途中切断
-3. HTTP 429 Retry
-4. 未対応オプションの明示的エラー
-5. 機密情報のログ混入防止
+1. Tool-call round trips.
+2. Interrupted streams.
+3. HTTP 429 retries.
+4. Explicit errors for unsupported options.
+5. Preventing secrets from entering logs.
 
-## 14. 設定と運用
+## 14. Configuration and operations
 
-- Rust 1.96 / Edition 2024、Tokio の非同期 API を対象とする。
-- 同梱設定は `config/`、利用者設定は `LLM_UNIFY_CONFIG` で指定する部分 TOML。Builder、環境変数、利用者設定、既定値の順に優先する。
-- API キーは環境変数または ClientBuilder で渡す。`.env` は自動読込しない。
-- 会話は呼び出し側で保持し、Responses / Interactions には `store: false` を送る。
-- 既知の非対応機能は事前拒否し、未知モデルではオプションを保持する。
-- ProviderMetadata は Provider と API 形式を持ち、異なる送信先への転送を拒否する。
-- Retry と Fallback は共通の試行・時間上限を持つ。利用者への Streaming イベント送出後は再試行しない。
-- Cache は非 Streaming の成功応答を対象にする。Client Clone 間で共有し、別々に構築した Client 間ではキー空間を隔離する。
-- 料金表・モデル対応表の推測や自動取得は行わない。料金がない場合は `None`、料金がある場合は通常単価の概算を返す。
-- Bedrock、Vertex、OpenTelemetry の依存は feature で選択する。外部 API への実疎通、crates.io 公開は自動実行しない。
+- Target Rust 1.96 / Edition 2024 and Tokio’s asynchronous API.
+- Bundled configuration lives in `config/`; user configuration is partial TOML selected by `LLM_UNIFY_CONFIG`. Precedence is builder, environment variables, user configuration, then defaults.
+- Pass API keys through environment variables or ClientBuilder. `.env` is not loaded automatically.
+- The caller retains conversation history. Responses / Interactions requests send `store: false`.
+- Reject known unsupported features before sending; preserve options for unknown models.
+- ProviderMetadata identifies the provider and API format and rejects forwarding to a different destination.
+- Retry and fallback share attempt/time limits. Do not retry after delivering a streaming event to the caller.
+- Cache successful non-streaming responses. Share caches between client clones and isolate key spaces between separately built clients.
+- Do not infer or automatically fetch prices or model capabilities. Return `None` without prices; otherwise return an estimate at standard rates.
+- Select Bedrock, Vertex, and OpenTelemetry dependencies through features. Live external API checks and crates.io publication are not automatic.

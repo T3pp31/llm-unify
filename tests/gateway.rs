@@ -174,7 +174,7 @@ async fn streaming_requests_usage_and_records_once_at_done() {
     // Given: SSE content and a separate final usage event.
     let h = Harness::new(|_| {}).await;
     let frames = [
-        json!({"choices":[{"index":0,"delta":{"content":"こんにちは"}}]}),
+        json!({"choices":[{"index":0,"delta":{"content":"Hello 🌍"}}]}),
         json!({"choices":[],"usage":{"prompt_tokens":5,"completion_tokens":2,"total_tokens":7}}),
     ];
     h.mount(ResponseTemplate::new(200).set_body_raw(sse(&frames, true), "text/event-stream"))
@@ -190,7 +190,7 @@ async fn streaming_requests_usage_and_records_once_at_done() {
         .to_owned();
     let text = result.text().await.unwrap();
     // Then: content is streamed and the final usage is recorded once, not per frame.
-    assert!(text.contains("こんにちは"));
+    assert!(text.contains("Hello 🌍"));
     assert!(text.ends_with("data: [DONE]\n\n"));
     let calls = h.upstream.received_requests().await.unwrap();
     let body: Value = serde_json::from_slice(&calls[0].body).unwrap();

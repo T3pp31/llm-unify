@@ -265,7 +265,7 @@ mod tests {
     fn redaction_precedes_the_text_bound_and_preserves_unicode_character_limits() {
         let processor = Processor::new(16);
         let secret = format!("sk-{}", "q".repeat(48));
-        let text = format!("{}{}{}", "é".repeat(110), secret, "界".repeat(1000));
+        let text = format!("{}{}{}", "é".repeat(110), secret, "€".repeat(1000));
         let input = DiagnosticInput {
             message: text,
             exception: None,

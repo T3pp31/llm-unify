@@ -1,15 +1,27 @@
-# 固定したLiteLLM参照ソース
+# Pinned LiteLLM reference source
 
-`litellm/` は `config/parity/baseline.json` で指定したアーカイブから取り込みます。
-上流コードと管理UIはMITライセンスで、著作権表示は `litellm/LICENSE` に保持します。
-`enterprise/` は取り込みません。UIに同梱された依存物のライセンスも元のまま保持します。
+`litellm/` is imported from the archive specified in `config/parity/baseline.json`.
+The upstream code and administration UI are MIT licensed; copyright notices are preserved in `litellm/LICENSE`.
+`enterprise/` is excluded. Licenses for dependencies bundled with the UI are preserved unchanged.
 
-`python3 tools/parity/source.py import` で取り込み、`verify` で全ファイルのSHA-256を検証します。
-元のディレクトリ配置を保ち、Rustの相対参照と上流の比較テスト用データを維持しています。
-`litellm/SOURCE.json` に取り込んだ全ファイルのハッシュを保存します。
-上流への変更は `config/parity/patches.json` に理由・変更前後のSHA-256・一意の置換内容を記録し、
-取り込み時に適用します。記録のない直接編集は `verify` が拒否します。
-`SOURCE.json` のハッシュは元のアーカイブ内容のまま保持します。
+Import with `python3 tools/parity/source.py import`; verify every file’s SHA-256 with `verify`.
+The original directory layout preserves Rust relative references and upstream comparison test data.
+`litellm/SOURCE.json` records the original hash of every imported file.
+Upstream changes are recorded in `config/parity/patches.json` with a reason, before/after SHA-256 hashes, and unique replacement text,
+then applied during import. `verify` rejects unrecorded direct edits.
+Hashes in `SOURCE.json` continue to identify the original archive contents.
 
-現在のパッチはRust framerとLLMテスト依存の `aws-smithy-eventstream =0.61.4` を `^0.61.4` に緩和するものです。
-既存SDKが必要とする0.61.6と解決できるようにし、Bedrock SDKの意図しない降格を防ぎます。
+The dependency patches relax `aws-smithy-eventstream =0.61.4` to `^0.61.4` in the Rust framer and LLM test dependencies.
+This permits resolution with 0.61.6 required by the existing SDK and prevents an unintended Bedrock SDK downgrade.
+
+Test-data patches remove Japanese text, including escaped literals and compatibility symbols.
+English examples and non-Japanese Unicode samples retain UTF-8 boundary and character-category coverage.
+Tokenizer fixtures are regenerated with tiktoken 0.12.0 and the pinned Python reference's admission counter;
+Python format fixtures are regenerated with CPython 3.14.5.
+The tokenizer generator uses the pinned reference's `count_input_tokens_for_model` entry point.
+
+Patches may use `edits`, an ordered list of `start`, `end`, and `after` fields.
+Offsets are zero-based byte positions in the original, hash-verified file; `end` is exclusive.
+Ranges must be ordered, non-overlapping, and within the original file. They are applied in reverse order
+before any legacy `replacements`, then the result is checked against `patched_sha256`.
+This records changes without copying removed test text into the patch manifest.

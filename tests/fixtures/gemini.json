@@ -1,1 +1,1 @@
-{"id":"interaction_fixture","model":"test-model","status":"completed","steps":[{"type":"model_output","content":[{"type":"text","text":"こんにちは"}]}],"usage":{"total_input_tokens":5,"total_output_tokens":2,"total_thought_tokens":0,"total_tokens":7}}
+{"id":"interaction_fixture","model":"test-model","status":"completed","steps":[{"type":"model_output","content":[{"type":"text","text":"Hello 🌍"}]}],"usage":{"total_input_tokens":5,"total_output_tokens":2,"total_thought_tokens":0,"total_tokens":7}}

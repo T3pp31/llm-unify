@@ -143,7 +143,7 @@ mod tests {
         let texts = [
             "",
             "Hello, how are you today?",
-            "é e\u{301} 漢字 ع ३ 🙂 ＡﬁⅣ",
+            "é e\u{301} 한글 ع ३ 🙂 ＡﬁⅣ",
             "  def function():\n    return 123456789\r\n",
             "<|endoftext|><|fim_prefix|><|start|>assistant<|message|>",
         ];
@@ -178,7 +178,7 @@ mod tests {
     #[case::r50k_base("r50k_base")]
     #[case::gpt2("gpt2")]
     fn codecs_round_trip_named_encodings(#[case] name: &str) {
-        let texts = ["hello world", "café 漢字 مرحبا 🙂", "line one\nline two"];
+        let texts = ["hello world", "café 한글 مرحبا 🙂", "line one\nline two"];
         let tokenizer = TiktokenTokenizer::from_name(name).unwrap();
         for text in texts {
             assert_eq!(
@@ -193,7 +193,7 @@ mod tests {
     fn decoding_token_prefixes_replaces_incomplete_utf8() {
         let tokenizer = TiktokenTokenizer::from_name("cl100k_base").unwrap();
         let reference = tiktoken_rs::cl100k_base_singleton();
-        let ids = tokenizer.encode("🙂漢字");
+        let ids = tokenizer.encode("🙂한글");
         for end in 1..=ids.len() {
             let bytes = reference.decode_bytes(&ids[..end]).unwrap();
             assert_eq!(

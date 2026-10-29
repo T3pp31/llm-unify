@@ -1,40 +1,40 @@
-# LLM Unifyの導入と運用
+# Installing and operating LLM Unify
 
-## 提供範囲
+## Current scope
 
-LLM UnifyはMITライセンスのゲートウェイとRust SDKです。Web画面はゲートウェイの
-状態・設定モデルの閲覧、検索、モデル名とAPI Base URLのコピーを提供します。
-モデル設定はYAMLで管理します。画面は上流のLiteLLM UIを使用しません。
+LLM Unify is an MIT-licensed gateway and Rust SDK. The web console displays gateway
+status and configured models, supports model search, and copies model names and the API Base URL.
+Models are managed in YAML. The console does not use the upstream LiteLLM UI.
 
-この版は単一の管理キーを共有できる運用者向けです。利用者別の仮想キー、
-テナント分離、予算による停止、利用者別の使用量集計は提供していません。
-PostgreSQL/Redisの試作APIは、HTTP Proxyの課金・予算経路には接続していません。
-全LiteLLM機能の互換性、管理操作、DB移行、1時間の複数台負荷試験は未完了です。
-これらを必要とする環境への本番投入条件は満たしていません。
+This version is intended for operators who can share one master key. It does not provide
+per-user virtual keys, tenant isolation, budget enforcement, or per-user usage summaries.
+The prototype PostgreSQL/Redis APIs are not connected to HTTP proxy billing or budget enforcement.
+Full LiteLLM compatibility, administration operations, database migration, and a one-hour multi-instance load test remain incomplete.
+Production deployment requirements for environments that need these features have not been met.
 
-## Dockerで起動
+## Start with Docker
 
-リポジトリのルートで実行します。Docker Engine/DesktopとCompose v2が必要です。
-レジストリに公開済みのイメージはまだありません。固定lockfileからローカルビルドします。
+Run from the repository root. Docker Engine/Desktop and Compose v2 are required.
+No image has been published to a registry yet. Build locally from the pinned lockfile.
 
 ```sh
 cp deploy/.env.example deploy/.env
 openssl rand -hex 32
 ```
 
-`deploy/.env`の次の値を設定します。ファイルをGitへ追加しないでください。
+Set the following values in `deploy/.env`. Do not add this file to Git.
 
-- `LLM_UNIFY_MASTER_KEY`：生成した十分にランダムな管理キー。
-- `UPSTREAM_API_BASE`：接続先のAPI Base URL。通常は末尾が`/v1`のURL。
-- `UPSTREAM_API_KEY`：接続先のキー。認証不要のローカル接続でも空値にはせず任意の非secret文字列を指定。
-- `PROXY_BIND_ADDRESS`・`PROXY_PORT`：公開するアドレスとポート。既定はlocalhostのみ。
-- その他の制限・ビルド並列数・ヘルスチェック値は同ファイルに集約。
+- `LLM_UNIFY_MASTER_KEY`: a sufficiently random generated master key.
+- `UPSTREAM_API_BASE`: the upstream API Base URL, usually ending in `/v1`.
+- `UPSTREAM_API_KEY`: the upstream key. For a local endpoint without authentication, use a nonempty, non-secret placeholder.
+- `PROXY_BIND_ADDRESS` and `PROXY_PORT`: the exposed address and port; localhost only by default.
+- Other limits, build concurrency, and health-check settings are collected in the same file.
 
-`deploy/proxy.yaml`の`litellm_params.model`を接続先モデルへ変更します。
-`model_name: main`は利用者に公開する名前で、クライアントのmodel欄に指定します。
-非対応・不明なYAML設定を指定した場合、起動は失敗します。
-ローカルLLMがホスト上で稼働するDocker Desktop環境では、接続URLのホストに
-`host.docker.internal`を使用します。Linuxではホスト向けの接続経路を別途設定してください。
+Change `litellm_params.model` in `deploy/proxy.yaml` to your upstream model.
+`model_name: main` is the public name used in the client’s model field.
+Unsupported or unknown YAML settings cause startup to fail.
+When a local LLM runs on the host with Docker Desktop, use `host.docker.internal`
+as the connection hostname. On Linux, configure routing to the host separately.
 
 ```sh
 docker compose --env-file deploy/.env -f deploy/compose.yaml config --quiet
@@ -43,64 +43,65 @@ docker compose --env-file deploy/.env -f deploy/compose.yaml up -d
 docker compose --env-file deploy/.env -f deploy/compose.yaml ps
 ```
 
-既定ポートなら`http://127.0.0.1:4000/ui/`を開き、管理キーでログインします。
-このイメージにはUIが埋め込まれ、Node.js・Pythonの本番実行環境は不要です。
-非root・read-only filesystem・権限削除・PID/メモリ制限で実行します。
-YAMLは読み取り専用でマウントし、再起動して反映します。
-`deploy/.env`と設定ファイルは起動前に読み取り可能な権限で作成してください。
+With the default port, open `http://127.0.0.1:4000/ui/` and sign in with the master key.
+The UI is embedded in the image; no Node.js or Python production runtime is required.
+The container runs as a non-root user with a read-only filesystem, dropped capabilities, and PID/memory limits.
+YAML is mounted read-only; restart to apply changes.
+Create `deploy/.env` and configuration files with readable permissions before startup.
 
-## 外部からのアクセス
+## External access
 
-TLSは信頼できるリバースプロキシまたはロードバランサーで終端します。
-ブラウザが表示するoriginがAPI Base URLになります。パスを追加せず同じoriginの
-`/ui/`、`/ui/api/`、`/v1/`、`/health/`を転送し、Authorizationヘッダーを保持してください。
-HTTPSを通して管理キーと推論リクエストを送信します。
-管理画面を運用者に限定する場合は、入口でネットワーク/認証による制限も設定します。
-ゲートウェイに予算・利用者別制限が実装されていると仮定して公開しないでください。
+Terminate TLS at a trusted reverse proxy or load balancer.
+The browser’s origin becomes the API Base URL. Forward `/ui/`, `/ui/api/`, `/v1/`, and `/health/`
+on the same origin without adding a path prefix, and preserve the Authorization header.
+Send master keys and inference requests over HTTPS.
+To restrict the console to operators, add network/authentication restrictions at the entry point.
+Do not expose the gateway assuming budget or per-user limits are implemented.
 
-UIのキーはメモリ内のみで使い、ログアウト・ページ離脱で破棄します。
-ページを再読み込みすると再ログインが必要です。ブラウザストレージには保存しません。
+The UI uses the key only in memory and discards it on sign-out or page exit.
+Reloading requires signing in again. The key is not saved in browser storage.
 
-## ヘルスチェックとログ
+## Health checks and logs
 
-- `/health/liveliness`：プロセスのHTTP応答。
-- `/health/readiness`：設定・認証初期化後、リクエストを受理可能。上流サービスの正常性を保証するものではありません。
-- 上流・モデルの正常性は、その接続先が対応するAPIに実リクエストを送り検証します。
+- `/health/liveliness`: the process responds over HTTP.
+- `/health/readiness`: configuration and authentication initialization are complete and requests can be accepted. This does not guarantee upstream health.
+- Verify upstream/model health with actual requests to an API supported by that endpoint.
 
-Composeはログをローテーションします。環境変数やCompose展開結果にはsecretが含まれるため、
-`docker compose config`の全文や`docker inspect`の環境変数を公開ログへ貼り付けないでください。
+Compose rotates logs. Environment variables and expanded Compose configuration contain secrets.
+Do not paste full `docker compose config` output or environment variables from `docker inspect` into public logs.
 
 ```sh
 docker compose --env-file deploy/.env -f deploy/compose.yaml logs --tail 100 proxy
 ```
 
-## 更新・切り戻し
+## Upgrades and rollback
 
-1. 現在のイメージタグまたはdigest、YAML、`deploy/.env`をアクセス制限した場所へ退避します。
-2. 新しいソースを別のチェックアウトでビルドし、別ポート・別の試験専用キーでAPIとUIを確認します。
-3. `LLM_UNIFY_IMAGE`を新タグへ変更し、`up -d`で切り替えます。実行中のリクエストを終了する時間は`PROXY_STOP_GRACE_PERIOD`で設定します。
-4. 異常があれば以前のイメージタグと設定へ戻し、`up -d --no-build`で再作成します。
+1. Save the current image tag or digest, YAML, and `deploy/.env` in an access-restricted location.
+2. Build new source in a separate checkout and verify the API and UI on a separate port with a dedicated test key.
+3. Change `LLM_UNIFY_IMAGE` to the new tag and run `up -d`. Configure time for in-flight requests to finish with `PROXY_STOP_GRACE_PERIOD`.
+4. If problems occur, restore the previous image tag and configuration and recreate with `up -d --no-build`.
 
-現Proxyは使用量DBを使用しません。設定・secret・イメージを運用上の復元対象としてください。
-別コマンド`llm-unify-gateway`のSQLite台帳のバックアップは、このProxy構成と混同しないでください。
-LiteLLM PostgreSQL/SQLiteからの移行コマンドは未提供です。
+The current proxy does not use a usage database. Include configuration, secrets, and images in your recovery procedure.
+The SQLite ledger backup for the separate `llm-unify-gateway` command is distinct from this proxy setup.
+Migration commands from LiteLLM PostgreSQL/SQLite are not available.
 
-停止・再開：
+Stop and restart:
 
 ```sh
 docker compose --env-file deploy/.env -f deploy/compose.yaml stop
 docker compose --env-file deploy/.env -f deploy/compose.yaml up -d
 ```
 
-## 検証とリリース
+## Verification and releases
 
-`python3 tools/check_container.py --image llm-unify:0.1.0`で、実際のComposeを使う
-隔離スモーク試験を行います。認証・秘密情報の非公開、UI、readiness、非root・read-only実行、
-再起動後の回復を確認し、試験専用コンテナだけを削除します。上流への推論は実行しません。
-比較・実API・移行・負荷を含む全体の受け入れは`docs/parity/README.md`を参照してください。
-Dockerスモーク試験の成功だけを全機能の製品受け入れとして扱いません。
+Run `python3 tools/check_container.py --image llm-unify:0.1.0` for an isolated smoke test
+using the actual Compose configuration. It checks authentication, secret non-disclosure, UI,
+readiness, non-root/read-only execution, and restart recovery, and removes only its own test containers.
+It does not run upstream inference. See `docs/parity/README.md` for full acceptance requirements,
+including differential, live API, migration, and load tests.
+Passing a Docker smoke test alone does not establish product acceptance for all features.
 
-## ライセンス
+## License
 
-[MIT License](../LICENSE)。上流Rustの出典・変更履歴・ライセンスは
-[THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md)を参照してください。
+See the [MIT License](../LICENSE) and [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md)
+for upstream Rust attribution, modification history, and licenses.
