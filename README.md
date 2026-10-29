@@ -1,5 +1,7 @@
 # LLM Unify
 
+[Project website](https://t3pp31.github.io/llm-unify/) · [Source and documentation](https://github.com/T3pp31/llm-unify)
+
 An LLM gateway and asynchronous Rust SDK. Configure upstream endpoints and public model names in YAML, then access them through an HTTP API.
 The web console lets you search configured models, copy model names, and view API connection details.
 
@@ -175,3 +177,10 @@ All APIs require the same bearer authentication. The upstream API key is read fr
 This relay does not translate HTTP formats for Anthropic/Gemini, manage per-user keys, enforce budgets, or provide an administration UI. Native APIs remain available through the SDK.
 
 References are `ARCHITECTURE.md`, `litellm/proxy/hooks/proxy_track_cost_callback.py`, `litellm/proxy/db/db_spend_update_writer.py`, and `litellm-rust/crates/cost/src/lib.rs` in `example_code/litellm-main.zip` (commit `dddbaa803d6e9fcc862ea7a5412f771cb1ae040e`, SHA-256 `b9f9058eb9141baaa7f072ca6be448f2e947d6b264a032a3579a613b63b45a99`). After verifying the MIT license for the non-enterprise portions, we implemented responsibility separation, unknown-price handling, and per-send recording independently using these references. No `enterprise/` code is used.
+
+## Project website
+
+The English introduction is published on [GitHub Pages](https://t3pp31.github.io/llm-unify/).
+Edit `site/index.html`, `site/styles.css`, and `site/script.js`; configure URLs and metadata in `site/site.json` (`repository_url`, `site_url`, and `description` are required).
+Run `python3 tools/build_site.py` to generate `_site/`, then preview it with `python3 -m http.server --directory _site 8000`.
+The Pages workflow deploys site changes from `main` and the initial publication branch `codex/github-pages`. It requires no third-party build dependencies.

@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="{{description}}">
+  <meta name="theme-color" content="#f5f3ed">
+  <meta property="og:title" content="LLM Unify — Many models. One integration.">
+  <meta property="og:description" content="{{description}}">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="{{site_url}}">
+  <link rel="canonical" href="{{site_url}}">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23cf4929'/%3E%3Cpath d='M18 18v21q0 12 14 12t14-12V18' fill='none' stroke='%23fff' stroke-width='7'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="./styles.css">
+  <script src="./script.js" defer></script>
+  <title>LLM Unify — Many models. One integration.</title>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="header wrap">
+  <a class="brand" href="#" aria-label="LLM Unify home"><span class="mark" aria-hidden="true">∪</span> llm<span class="brand-light">unify</span><span class="brand-dot">.</span></a>
+  <button class="menu-button" aria-expanded="false" aria-controls="navigation" hidden>Menu</button>
+  <nav id="navigation" aria-label="Main navigation">
+    <a href="#overview">Overview</a><a href="#providers">Providers</a><a href="#start">Quick start</a>
+    <a class="nav-github" href="{{repository_url}}">GitHub <span aria-hidden="true">↗</span></a>
+  </nav>
+</header>
+<main id="main">
+<section class="hero wrap" aria-labelledby="hero-title">
+  <div class="hero-copy">
+    <p class="eyebrow"><span class="status-dot"></span> OPEN SOURCE · BUILT WITH RUST</p>
+    <h1 id="hero-title">Many models.<br>One <em>integration.</em></h1>
+    <p class="lead">An LLM gateway and async Rust SDK for the models you choose. Connect native provider APIs and your own endpoints, with one place to start.</p>
+    <div class="actions"><a class="button primary" href="#start">Start building <span aria-hidden="true">↗</span></a><a class="text-link" href="{{repository_url}}">Explore the source <span aria-hidden="true">→</span></a></div>
+    <p class="hero-note">Self-hosted. MIT licensed. Your infrastructure.</p>
+  </div>
+  <div class="routing" role="img" aria-label="Your application connects through LLM Unify to OpenAI, Anthropic, Gemini, or compatible endpoints. Native provider APIs are available through the Rust SDK.">
+    <div class="diagram-top"><span>THE INTEGRATION LAYER</span><span class="diagram-index">01 / CONNECT</span></div>
+    <div class="app-node"><span aria-hidden="true">⌘</span> Your application <small>HTTP API / Rust SDK</small></div>
+    <div class="wire vertical"></div>
+    <div class="unify-node"><span class="mark" aria-hidden="true">∪</span><div>LLM Unify<small>One entry point. Your choice of models.</small></div><span class="node-light"></span></div>
+    <div class="wire vertical"></div><div class="branch-wire"></div>
+    <div class="provider-nodes"><span>OpenAI</span><span>Anthropic</span><span>Gemini</span><span>Your endpoint</span></div>
+    <div class="diagram-bottom"><span class="status-dot"></span> Native APIs through the SDK <span aria-hidden="true">↗</span></div>
+  </div>
+</section>
+<div class="fact-strip"><div class="wrap facts"><span><strong>Rust</strong> async by design</span><span><strong>HTTP + SDK</strong> two ways in</span><span><strong>YAML + TOML</strong> explicit configuration</span><span><strong>MIT</strong> yours to build on</span></div></div>
+<section class="section wrap" id="overview" aria-labelledby="overview-title">
+  <div class="section-heading"><p class="eyebrow">01 / THE TOOLKIT</p><h2 id="overview-title">Less integration work.<br>More room to build.</h2><p>Start with a configurable gateway, or bring the SDK directly into your Rust application.</p></div>
+  <div class="features">
+    <article><span class="feature-number">01</span><h3>A gateway you can run</h3><p>Configure upstream endpoints and public model names in YAML. Expose an HTTP API and use the web console to discover configured models and connection details.</p><a href="{{repository_url}}/blob/main/docs/operations.md">Deployment guide <span aria-hidden="true">↗</span></a></article>
+    <article><span class="feature-number">02</span><h3>A native Rust experience</h3><p>Use one async SDK for chat, streaming, tool calling, and image input. Provider-specific APIs stay behind a common interface, with metadata preserved for conversation history.</p><a href="{{repository_url}}#usage">Explore the SDK <span aria-hidden="true">↗</span></a></article>
+    <article><span class="feature-number">03</span><h3>Control the request path</h3><p>The SDK supports weighted routing, retries, fallbacks, and endpoint cooldowns. Configure capabilities explicitly and use optional caching and OpenTelemetry.</p><a href="{{repository_url}}#routing-retry-and-streaming">Routing and reliability <span aria-hidden="true">↗</span></a></article>
+  </div>
+</section>
+<section class="code-section" aria-labelledby="code-title"><div class="wrap code-layout">
+  <div><p class="eyebrow">02 / THE DEVELOPER EXPERIENCE</p><h2 id="code-title">One client.<br>Your next idea.</h2><p>Choose a model, send a message, and work with a shared response type. Keep credentials in environment variables and configuration in your own files.</p><a class="light-link" href="{{repository_url}}/tree/main/examples">See runnable examples <span aria-hidden="true">→</span></a><p class="code-caption">Rust 1.96+ · Edition 2024 · Tokio<br>Build from source; not yet published to crates.io.</p></div>
+  <div class="code-window"><div class="code-toolbar"><span><span class="file-dot"></span> examples/chat.rs</span><button class="copy" data-copy="sdk-code" aria-label="Copy Rust SDK example">Copy</button></div><pre><code id="sdk-code"><span class="syntax-purple">use</span> llm_unify::{ChatRequest, Client};
+
+<span class="syntax-purple">let</span> client = Client::from_env()?;
+<span class="syntax-purple">let</span> model = std::env::var(<span class="syntax-green">"LLM_UNIFY_MODEL"</span>)?;
+
+<span class="syntax-purple">let</span> response = client.chat(
+    ChatRequest::new(model)
+        .system(<span class="syntax-green">"You are a helpful assistant."</span>)
+        .user(<span class="syntax-green">"What will you build next?"</span>)
+        .max_output_tokens(<span class="syntax-orange">1024</span>)
+).<span class="syntax-purple">await</span>?;
+
+println!(<span class="syntax-green">"{}"</span>, response.output_text());</code></pre><div class="code-footer">Inside your async application <span>ASYNC RUST</span></div></div>
+</div></section>
+<section class="section wrap" id="providers" aria-labelledby="providers-title">
+  <div class="section-heading provider-heading"><div><p class="eyebrow">03 / PROVIDER SUPPORT</p><h2 id="providers-title">Meet models where they are.</h2></div><p>The SDK speaks native APIs. Use hosted providers, local models, or a compatible endpoint of your own.</p></div>
+  <div class="table-scroll"><table><caption class="sr-only">Rust SDK provider support</caption><thead><tr><th scope="col">Provider</th><th scope="col">API</th><th scope="col">Availability</th></tr></thead><tbody>
+  <tr><th scope="row">OpenAI</th><td>Responses · Chat Completions</td><td><span class="tag">Default</span></td></tr>
+  <tr><th scope="row">Anthropic</th><td>Messages</td><td><span class="tag">Default</span></td></tr>
+  <tr><th scope="row">Gemini</th><td>Interactions (steps format)</td><td><span class="tag">Default</span></td></tr>
+  <tr><th scope="row">Ollama &amp; compatible endpoints</th><td>OpenAI-compatible Chat Completions</td><td><span class="tag">Default</span></td></tr>
+  <tr><th scope="row">Amazon Bedrock</th><td>Converse · ConverseStream</td><td><span class="tag optional">Feature: bedrock</span></td></tr>
+  <tr><th scope="row">Vertex AI</th><td>Gemini generateContent · streamGenerateContent</td><td><span class="tag optional">Feature: vertex</span></td></tr>
+  </tbody></table></div>
+  <p class="table-note">Feature support depends on the provider, API, and model. Embeddings are available for OpenAI and compatible endpoints that support them. <a href="{{repository_url}}#supported-apis">Read the compatibility details ↗</a></p>
+</section>
+<section class="start-section" id="start" aria-labelledby="start-title"><div class="wrap start-layout">
+  <div><p class="eyebrow">04 / GET STARTED</p><h2 id="start-title">Your gateway.<br>Up and running.</h2><p>Clone the repository, configure your upstream, and start with Docker Compose.</p><a class="text-link" href="{{repository_url}}/blob/main/docs/operations.md">Full installation &amp; operations guide ↗</a></div>
+  <div class="steps"><div class="step"><span>1</span><div><h3>Get the source</h3><div class="command"><pre><code id="clone-code">git clone {{repository_url}}.git
+cd llm-unify</code></pre><button class="copy" data-copy="clone-code" aria-label="Copy clone commands">Copy</button></div></div></div>
+  <div class="step"><span>2</span><div><h3>Configure your environment</h3><div class="command"><pre><code id="env-code">cp deploy/.env.example deploy/.env</code></pre><button class="copy" data-copy="env-code" aria-label="Copy environment setup command">Copy</button></div><p>Set the master key, upstream URL, and upstream key in <code>deploy/.env</code>. Set your model in <code>deploy/proxy.yaml</code>.</p></div></div>
+  <div class="step"><span>3</span><div><h3>Start the gateway</h3><div class="command"><pre><code id="docker-code">docker compose --env-file deploy/.env \
+  -f deploy/compose.yaml up -d --build</code></pre><button class="copy" data-copy="docker-code" aria-label="Copy Docker Compose command">Copy</button></div><p>Open the console at <code>127.0.0.1:4000/ui/</code> with the default settings. Images are built from source.</p></div></div></div>
+</div></section>
+<section class="scope wrap" aria-labelledby="scope-title"><div class="scope-icon" aria-hidden="true">i</div><div><p class="eyebrow">PROJECT STATUS</p><h2 id="scope-title">Open source. Still evolving.</h2><p>The proxy console displays configuration. Per-user virtual keys, budget enforcement, usage summaries, and model editing through the UI are not yet available. The proxy uses a shared master key and is not a multi-tenant authorization or billing system. Full LiteLLM OSS parity and product acceptance remain incomplete.</p><p>A separate <code>llm-unify-gateway</code> command provides an OpenAI-compatible HTTP relay with a SQLite usage ledger. It is distinct from <code>llm-unify-proxy</code>.</p><a class="text-link" href="{{repository_url}}/blob/main/docs/parity/README.md">Follow the verification record <span aria-hidden="true">↗</span></a></div></section>
+<section class="closing wrap"><p class="eyebrow">MAKE IT YOURS</p><h2>Build with the models<br>that work for you.</h2><a class="button primary" href="{{repository_url}}">Explore LLM Unify on GitHub <span aria-hidden="true">↗</span></a></section>
+</main>
+<footer class="wrap footer"><a class="brand" href="#"><span class="mark" aria-hidden="true">∪</span> llm<span class="brand-light">unify</span><span class="brand-dot">.</span></a><p>Open source, under the MIT license.</p><nav aria-label="Footer"><a href="{{repository_url}}/blob/main/LICENSE">License</a><a href="{{repository_url}}/blob/main/CHANGELOG.md">Changelog</a><a href="{{repository_url}}/issues">Issues ↗</a></nav></footer>
+<p class="sr-only" id="copy-status" role="status" aria-live="polite"></p>
+</body>
+</html>
