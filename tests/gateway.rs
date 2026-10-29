@@ -5,6 +5,7 @@ use reqwest::StatusCode;
 use serde_json::{Value, json};
 use std::time::Duration;
 use tempfile::TempDir;
+use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 use wiremock::{
     Mock, MockServer, ResponseTemplate,
@@ -19,6 +20,7 @@ struct Harness {
     config: Config,
     url: String,
     task: JoinHandle<()>,
+    shutdown: Option<oneshot::Sender<()>>,
     client: reqwest::Client,
 }
 impl Drop for Harness {
@@ -27,13 +29,19 @@ impl Drop for Harness {
     }
 }
 
-async fn serve(gateway: Gateway) -> (String, JoinHandle<()>) {
+async fn serve(gateway: Gateway) -> (String, JoinHandle<()>, oneshot::Sender<()>) {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let url = format!("http://{}", listener.local_addr().unwrap());
+    let (shutdown, signal) = oneshot::channel();
     let task = tokio::spawn(async move {
-        axum::serve(listener, gateway.router()).await.unwrap();
+        axum::serve(listener, gateway.router())
+            .with_graceful_shutdown(async move {
+                let _ = signal.await;
+            })
+            .await
+            .unwrap();
     });
-    (url, task)
+    (url, task, shutdown)
 }
 
 impl Harness {
@@ -62,15 +70,26 @@ impl Harness {
         config.http.max_response_bytes = 4096;
         config.http.max_sse_event_bytes = 1024;
         change(&mut config);
-        let (url, task) = serve(Gateway::new(config.clone(), KEY).await.unwrap()).await;
+        let (url, task, shutdown) = serve(Gateway::new(config.clone(), KEY).await.unwrap()).await;
         Self {
             _directory: directory,
             upstream,
             config,
             url,
             task,
+            shutdown: Some(shutdown),
             client: reqwest::Client::new(),
         }
+    }
+    async fn restart(&mut self) {
+        // Close existing connections and release the ledger before reopening the same DB.
+        self.shutdown.take().unwrap().send(()).unwrap();
+        (&mut self.task).await.unwrap();
+        let (url, task, shutdown) =
+            serve(Gateway::new(self.config.clone(), KEY).await.unwrap()).await;
+        self.url = url;
+        self.task = task;
+        self.shutdown = Some(shutdown);
     }
     async fn post(&self, body: Value) -> reqwest::Response {
         self.client
@@ -246,10 +265,7 @@ async fn missing_prices_are_unknown_and_zero_rates_are_explicit() {
     free.input_per_million = 0.0;
     free.output_per_million = 0.0;
     h.config.prices.insert("ollama/org/model".into(), free);
-    h.task.abort();
-    let (url, task) = serve(Gateway::new(h.config.clone(), KEY).await.unwrap()).await;
-    h.url = url;
-    h.task = task;
+    h.restart().await;
     assert_eq!(h.post(request()).await.status(), StatusCode::OK);
     // Then: past unknown prices remain unknown, while new zero prices yield zero.
     let history = h.get("/usage/requests").await;
@@ -271,10 +287,7 @@ async fn restart_preserves_price_snapshot_and_history_pagination() {
         .get_mut("ollama/org/model")
         .unwrap()
         .input_per_million = 9.0;
-    h.task.abort();
-    let (url, task) = serve(Gateway::new(h.config.clone(), KEY).await.unwrap()).await;
-    h.url = url;
-    h.task = task;
+    h.restart().await;
     assert_eq!(h.post(request()).await.status(), StatusCode::OK);
     let first = h.get("/usage/requests?limit=1").await;
     let before = first["next_before"].as_i64().unwrap();
@@ -873,10 +886,7 @@ async fn unfinished_rows_survive_restart_as_pending_not_free_successes() {
         )
         .unwrap();
     // When: the gateway opens the same persistent database again.
-    h.task.abort();
-    let (url, task) = serve(Gateway::new(h.config.clone(), KEY).await.unwrap()).await;
-    h.url = url;
-    h.task = task;
+    h.restart().await;
     let report = h.get("/usage/summary").await;
     // Then: the unresolved attempt remains visible and its usage/cost stays unknown.
     assert_eq!(report["data"][0]["pending_requests"], 1);
