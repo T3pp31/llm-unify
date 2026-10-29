@@ -199,8 +199,8 @@ mod tests {
     #[rstest]
     fn encoded_limit_counts_utf8_bytes_across_rows() {
         let rows = vec![
-            BTreeMap::from([("metadata".into(), json!("雪"))]),
-            BTreeMap::from([("metadata".into(), json!("雪"))]),
+            BTreeMap::from([("metadata".into(), json!("☃"))]),
+            BTreeMap::from([("metadata".into(), json!("☃"))]),
         ];
         let encoded = write_rows(&rows, None, Vec::new(), usize::MAX).unwrap();
         assert!(write_rows(&rows, None, Vec::new(), encoded.len()).is_ok());
@@ -215,7 +215,7 @@ mod tests {
     #[case::submitted(Some(123))]
     fn retry_token_excludes_receive_time_and_input_is_unchanged(#[case] submitted: Option<u64>) {
         let row = BTreeMap::from([
-            ("metadata".into(), json!({"message": "雪\n\""})),
+            ("metadata".into(), json!({"message": "☃\n\""})),
             ("start_time".into(), json!(1_234)),
         ]);
         let row = match submitted {
@@ -228,10 +228,10 @@ mod tests {
         let original = row.clone();
         let legacy = match submitted {
             Some(_) => {
-                "{\"EngineReceivedMs\":123,\"metadata\":{\"message\":\"雪\\n\\\"\"},\"start_time\":\"1970-01-01T00:00:01.234Z\"}"
+                "{\"EngineReceivedMs\":123,\"metadata\":{\"message\":\"☃\\n\\\"\"},\"start_time\":\"1970-01-01T00:00:01.234Z\"}"
             }
             None => {
-                "{\"metadata\":{\"message\":\"雪\\n\\\"\"},\"start_time\":\"1970-01-01T00:00:01.234Z\"}"
+                "{\"metadata\":{\"message\":\"☃\\n\\\"\"},\"start_time\":\"1970-01-01T00:00:01.234Z\"}"
             }
         };
         let rows = vec![row.clone(), row];
@@ -247,7 +247,7 @@ mod tests {
             .read_to_string(&mut decoded)
             .unwrap();
         let expected = json!({
-            "EngineReceivedMs":456, "metadata":{"message":"雪\n\""},
+            "EngineReceivedMs":456, "metadata":{"message":"☃\n\""},
             "start_time":"1970-01-01T00:00:01.234Z"
         });
         assert_eq!(

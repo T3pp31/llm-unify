@@ -1,40 +1,40 @@
-# LiteLLM OSS互換実装の検証記録
+# LiteLLM OSS parity verification record
 
-全機能の再現・製品版の受け入れは未完了です。現在のProxyを本番移行先として扱わないでください。
-既存のRust SDK・TOML・`llm-unify-gateway`のSQLite台帳と、開発中の互換Proxyは別コマンドです。
-既存Gatewayの「受理1件につき上流送信最大1回」の契約は維持します。
+Full feature parity and product acceptance remain incomplete. Do not treat the current proxy as a production migration target.
+The existing Rust SDK, TOML configuration, and SQLite ledger in `llm-unify-gateway` are separate from the compatibility proxy under development.
+The existing gateway retains its contract of at most one upstream send per accepted request.
 
-基準はLiteLLM **1.108.0**、コミット`dddbaa803d6e9fcc862ea7a5412f771cb1ae040e`です。
-参照ZIP、SHA-256、抽出範囲、元ソースmanifestのSHA-256は`config/parity/baseline.json`に固定しています。
-MITの著作権表示は`vendor/litellm/LICENSE`等に保存します。リポジトリには上流Rustとそのテスト資材だけを保持し、Python版本体・上流Web UIは同梱しません。
-比較用の固定ソースはGit対象外の`target/reference/litellm/`へ配置します。Enterpriseディレクトリは取り込みません。
-上流Rustの依存制約への変更は`config/parity/patches.json`に理由・変更内容・変更前後のハッシュを記録しています。
+The baseline is LiteLLM **1.108.0**, commit `dddbaa803d6e9fcc862ea7a5412f771cb1ae040e`.
+The reference ZIP, SHA-256, extraction scope, and original source manifest SHA-256 are pinned in `config/parity/baseline.json`.
+MIT copyright notices are retained in `vendor/litellm/LICENSE` and related files. Only upstream Rust and its test materials are kept in the repository; the Python runtime and upstream web UI are not bundled.
+Pinned comparison sources live in Git-ignored `target/reference/litellm/`. Enterprise directories are excluded.
+Changes to upstream Rust dependency constraints are recorded in `config/parity/patches.json` with reasons, replacements, and before/after hashes.
 
-## 現在の範囲
+## Current scope
 
-| 項目 | 状態 |
+| Area | Status |
 |---|---|
-| 上流Rustの再利用、ライセンス・ハッシュ、外部比較ソースの分離 | 実装済み。取り込みは機能実装の証拠に数えない |
-| HTTP、Provider、Provider/API、設定、SDK公開名、Router、Cache、認証、管理、Guardrail、連携、UIの静的抽出 | 調査候補を生成済み。OSS/Enterprise判定・動的登録の精査・契約レビューは未完了 |
-| OpenAI Chatの通常応答、Tool Call、Tool結果の往復、SSE、上流429 | 固定Python版と模擬上流を使う比較ケースを実装 |
-| 上流RustのResponses、Messages、OCR、Transcription等 | 経路を接続済み。各機能のPython比較は未完了 |
-| YAML | 対応済みキーだけ受理。未対応の予算・Router・Cache等を黙って無視しない |
-| 既存SDKを共通実行基盤へ接続、全Provider/API、料金、Router、Cache backend | 未完了 |
-| PostgreSQLの試行台帳・原子的複数予算予約/精算、Redis共有レート制限/Cache | Rust APIと実DB試験を実装。Proxyの全送信経路への接続は未完了 |
-| 仮想キー、利用者/チーム/組織管理、料金表との接続、管理API | 未実装 |
-| Webコンソール `/ui/` | Rust自身が配信。認証付き設定モデル一覧・稼働状態を表示。管理操作は未実装 |
-| 管理画面の全操作・操作E2E、DB移行、バックアップ/復元 | 未実装 |
-| 代表7接続先の実API、2台/100同時/1時間の障害・継続稼働試験 | 未実施。Codexのローカルルーターは別枠の実接続試験として扱う |
+| Upstream Rust reuse, licenses/hashes, separate external comparison sources | Implemented. Importing code does not count as evidence of feature implementation |
+| Static extraction of HTTP, providers, provider/API pairs, configuration, public SDK names, router, cache, authentication, administration, guardrails, integrations, and UI | Inventory candidates generated. OSS/Enterprise classification, dynamic registration analysis, and contract review remain incomplete |
+| OpenAI Chat ordinary responses, tool calls, tool-result round trips, SSE, upstream 429 | Differential cases implemented with the pinned Python version and a mock upstream |
+| Upstream Rust Responses, Messages, OCR, Transcription, etc. | Routes connected. Per-feature Python comparisons remain incomplete |
+| YAML | Only supported keys accepted. Unsupported budget/router/cache settings are not silently ignored |
+| Connecting the existing SDK to the shared engine; all providers/APIs, pricing, router, cache backends | Incomplete |
+| PostgreSQL attempt ledger and atomic reservation/settlement across multiple budgets; Redis shared rate limits/cache | Rust APIs and real-database tests implemented. Integration into all proxy send paths remains incomplete |
+| Virtual keys, user/team/organization management, pricing integration, administration API | Not implemented |
+| Web console `/ui/` | Served by Rust. Displays authenticated configured-model lists and runtime status. Administration operations are not implemented |
+| All console operations and interaction E2E tests, database migration, backup/restore | Not implemented |
+| Live APIs for seven representative endpoints; failure/soak tests with two instances, 100 concurrent requests, and one hour | Not run. Codex local-router tests are a separate live-connection category |
 
-`inventory.json`は静的な調査候補の一覧です。件数を機能数・OSS対応数・実装済み数と読み替えません。
-各候補の`scope`、入出力契約、実装状態、検証ケースはレビュー前の値で生成します。
-確認済みの実装判断は`config/parity/implementation.json`へ別途保存し、自動抽出で上書きしません。
-OpenAI Chat関連の記録は`partial`です。5ケースを通過しても、Provider/APIの全契約が揃うまでは`implemented`へ昇格しません。
-関数・型・内部補助処理も候補に含むため、独立した製品機能かどうかの精査も必要です。
+`inventory.json` is a static list of investigation candidates. Counts do not represent product features, OSS coverage, or implemented features.
+Each candidate’s `scope`, input/output contract, implementation status, and verification cases are generated as unreviewed values.
+Reviewed implementation decisions are saved separately in `config/parity/implementation.json` and are not overwritten by extraction.
+OpenAI Chat records are `partial`. Passing five cases does not promote them to `implemented` until all provider/API contracts are covered.
+Candidates include functions, types, and internal helpers, so each also needs review to determine whether it is an independent product feature.
 
-## 固定ソースと調査表
+## Pinned source and inventory
 
-Python 3.12以上が必要です。上流PythonはimportせずASTを解析します。
+Python 3.12 or later is required. Upstream Python is parsed as an AST without importing it.
 
 ```bash
 python3 tools/parity/source.py verify
@@ -43,21 +43,21 @@ python3 tools/parity/inventory.py check
 python3 -m unittest discover -s tests/parity -v
 ```
 
-参照ZIPは`config/parity/baseline.json`の`archive`へ配置します。SHA-256が固定値と一致するものだけ使用します。
-`python3 tools/parity/source.py import`はRust資材だけを取り込みます。Python版をvendorへ復元しません。
-比較前に`python3 tools/parity/source.py import --reference`を実行すると、固定ソースをGit対象外の`target/reference/litellm/`へ展開します。
-`source.py verify --reference`で全比較資材を検証できます。
-通常の`inventory.py check`は固定調査表のハッシュと基準版を検証し、`inventory.py check --reference`は外部比較ソースから再生成して照合します。
-全体リリース判定は外部比較ソースも要求し、未配置なら失敗します。
-`SOURCE.json`は元ファイルのハッシュを保持し、記録済みパッチだけ適用・照合します。
-調査表の再生成は`python3 tools/parity/inventory.py generate`です。
+Place the reference ZIP at `archive` in `config/parity/baseline.json`. Only an archive matching the pinned SHA-256 is accepted.
+`python3 tools/parity/source.py import` imports only Rust materials; it does not restore Python into vendor.
+Before comparison, `python3 tools/parity/source.py import --reference` extracts pinned sources to Git-ignored `target/reference/litellm/`.
+Verify all comparison materials with `source.py verify --reference`.
+Ordinary `inventory.py check` verifies the pinned inventory hash and baseline; `inventory.py check --reference` regenerates from external comparison sources and checks equality.
+The full release gate also requires external comparison sources and fails if they are absent.
+`SOURCE.json` retains original file hashes; only recorded patches are applied and verified.
+Regenerate the inventory with `python3 tools/parity/inventory.py generate`.
 
-Cargoの入れ子Workspace継承問題（[Cargo #12154](https://github.com/rust-lang/cargo/issues/12154)）のため、
-ルートCargo.tomlの生成セクションに上流のpackage/dependency定義を同じ指定で保持しています。
-生成は`python3 tools/parity/workspace.py generate`、パス以外の差分がないかの確認は`check`です。
-上流Rustのテスト全体を実行したものとは区別し、このプロジェクトのcrateは`-p`で指定します。
+Because of Cargo’s nested-workspace inheritance issue ([Cargo #12154](https://github.com/rust-lang/cargo/issues/12154)),
+the generated section in the root Cargo.toml retains upstream package/dependency definitions with the same specifications.
+Generate with `python3 tools/parity/workspace.py generate`; use `check` to verify there are no differences except paths.
+Select this project’s crates with `-p`; this is distinct from running the entire upstream Rust test suite.
 
-## Proxyの実行
+## Running the proxy
 
 ```bash
 cargo build --locked -p llm-unify-proxy
@@ -67,95 +67,96 @@ cargo run --locked -p llm-unify-proxy -- \
   --config /absolute/path/to/config.yaml --listen 127.0.0.1:4000
 ```
 
-受理するキーは`config/parity/native-capabilities.json`に記載しています。
-`model_list`の`model_name`と`litellm_params`、`general_settings.master_key`、`environment_variables`を扱います。
-接続先・キーには`os.environ/変数名`を指定できます。未設定・空のmaster keyは起動エラーです。
-独自Python認証の設定は、Rustへの移行が必要であることを示して拒否します。
-同じ`model_name`の複数deploymentはRouter実装前のため拒否し、1件に潰しません。
+Accepted keys are listed in `config/parity/native-capabilities.json`.
+Supported settings include `model_name` and `litellm_params` under `model_list`, `general_settings.master_key`, and `environment_variables`.
+Endpoints and keys can use `os.environ/VARIABLE_NAME`. Missing or empty master keys cause startup errors.
+Custom Python authentication settings are rejected with an explanation that migration to Rust is required.
+Multiple deployments with the same `model_name` are rejected until routing is implemented, rather than collapsed to one entry.
 
-実行期限・上限・OpenAIの既定URLは`config/parity/native-defaults.json`をビルド時に読み込みます。
-`--runtime-config /absolute/path/to/runtime.json`で同じスキーマの外部JSONに置き換えられます。
-HTTP本文やAPIキーはログに記録しません。現在のProxyには永続使用量台帳がありません。
-OpenAI Chatの再試行は既存Gatewayから独立しており、429と5xxに既定2回を上限に行います。
-全Router戦略・Fallback・課金記録との整合性を実装したものではありません。
+Deadlines, limits, and the default OpenAI URL are loaded from `config/parity/native-defaults.json` at build time.
+Replace them with external JSON using the same schema via `--runtime-config /absolute/path/to/runtime.json`.
+HTTP bodies and API keys are not logged. The current proxy has no persistent usage ledger.
+OpenAI Chat retries operate independently of the existing gateway, with at most two retries by default for HTTP 429 and 5xx.
+This does not implement all routing strategies, fallback, or consistency with billing records.
 
-## Webコンソール
+## Web console
 
-Proxyを起動して`http://<listenのアドレス>/ui/`へアクセスします。HTML・CSS・JavaScriptは
-`llm-unify-proxy`バイナリに埋め込み、同じRustプロセスから配信します。Node.js・Pythonサーバーは不要です。
-画面の接続欄にこのProxyのmaster keyを入力すると、`/ui/api/status`をBearer認証で取得します。
-表示するのは公開モデル名、製品バージョン、接続用のAPI経路です。上流URL・API key・設定全体を返しません。
-キーはページのメモリ内のみで使用し、接続解除・ページ離脱で破棄します。
-UIレスポンスは`no-store`、同一originに限定したCSPを設定しています。
-`config/proxy-ui.json`がAPI表示情報・画面通信期限の定義で、ビルド時に読み込みます。
-配布・運用手順は`docs/operations.md`を参照してください。
-この画面は管理APIの完成を意味しません。設定編集・仮想キー管理・使用量・請求額はまだ提供しません。
+Start the proxy and visit `http://<listen-address>/ui/`. HTML, CSS, and JavaScript are
+embedded in the `llm-unify-proxy` binary and served by the same Rust process. No Node.js or Python server is required.
+Entering this proxy’s master key in the console fetches `/ui/api/status` with bearer authentication.
+It displays public model names, the product version, and API connection paths. It does not return upstream URLs, API keys, or the full configuration.
+The key is used only in page memory and discarded on disconnect or page exit.
+UI responses use `no-store` and a same-origin content security policy.
+`config/proxy-ui.json` defines displayed API information and the UI request timeout, loaded at build time.
+See `docs/operations.md` for distribution and operations instructions.
+The console does not establish completion of the administration API. Configuration editing, virtual key management, usage, and billing totals are not yet provided.
 
-## 永続台帳と共有制限の基盤
+## Persistent ledger and shared limits foundation
 
-`crates/storage`のRust APIを`llm_unify_engine::storage`から公開しています。
-この公開はHTTP Proxyでの課金・予算・Cacheの有効化を意味しません。現在は基盤の単独試験までです。
-既存GatewayのSQLite台帳はそのまま維持しています。
+The Rust API in `crates/storage` is exposed through `llm_unify_engine::storage`.
+This does not enable billing, budgets, or caching in the HTTP proxy. Verification currently covers the foundation in isolation.
+The existing gateway’s SQLite ledger is preserved.
 
-PostgreSQLを正本とし、キー・利用者・チーム・組織等に相当する複数の予算accountを
-一つのトランザクションで予約・精算できます。accountの関連付けは呼び出し元が渡すため、
-仮想キー認証と全適用予算の解決は別途実装が必要です。Redisを予算の正本にはしません。
+PostgreSQL is the source of truth. Reservations and settlements across multiple budget accounts
+representing keys, users, teams, organizations, and similar entities run in one transaction.
+The caller supplies account associations; virtual-key authentication and resolution of all applicable budgets still need separate implementation.
+Redis is not the budget source of truth.
 
-試行状態は`prepared → dispatched → settled`です。送信結果が不明なら`uncertain`にできます。
-`dispatch`を成功させた呼び出し元だけが上流送信を開始できます。再試行には別の試行IDとordinalが必要です。
-送信前の`prepared`だけを`released`にできます。送信後は期限やProxy再起動だけで解放せず、
-実費が確定するまで予約を保持します。応答切断・精算コミット結果不明は未確定として照合する設計です。
-実費が予約額を超えた場合も実費を記録し、超過した予算は後続予約を拒否します。
-金額・トークン数の不明値とゼロは区別し、ProviderのCache・Reasoning等のUsage詳細も元のJSONとして保存します。
-現APIの金額はUSDの10億分の1単位の整数で、より細かな小数を黙って丸めません。
-全Providerの料金計算・変換との互換性は未完了です。
+Attempt states are `prepared → dispatched → settled`; unknown send outcomes can become `uncertain`.
+Only a caller whose `dispatch` succeeds may begin sending upstream. Retries require a new attempt ID and ordinal.
+Only pre-send `prepared` attempts can become `released`. After dispatch, deadlines or proxy restarts alone do not release reservations;
+reservations remain until actual cost is established. Interrupted responses and unknown settlement commit outcomes require reconciliation as uncertain results.
+Actual cost is recorded even when it exceeds the reservation, and exceeded budgets reject subsequent reservations.
+Unknown money/token values are distinct from zero. Provider usage details such as cache/reasoning usage are retained as original JSON.
+The current API represents money as integer billionths of a USD and does not silently round finer decimal amounts.
+Compatibility with every provider’s pricing and conversion remains incomplete.
 
-`Ledger::connect`は環境変数のURLを使います。`Ledger::migrate`をサービス開始前に明示実行し、
-新規の移行先DBへ`llm_unify`スキーマを作ります。これは内部スキーマの初期化であり、
-LiteLLM PostgreSQLやSQLiteからのデータ移行コマンドではありません。
-元DBへこのマイグレーションを実行しないでください。接続数・取得期限・SQL実行期限・ロック期限は
-`PostgresSettings`で指定します。URLやDBからの秘密情報をエラー表示へ含めません。
+`Ledger::connect` uses a URL from an environment variable. Explicitly run `Ledger::migrate` before serving traffic
+to create the `llm_unify` schema in a new target database. This initializes an internal schema;
+it is not a data migration command from LiteLLM PostgreSQL or SQLite.
+Do not run this migration against the source database. Configure connection counts, acquisition deadlines, SQL execution deadlines,
+and lock deadlines through `PostgresSettings`. Errors do not expose secrets from URLs or the database.
 
-Redisは全適用制限をLuaでまとめて判定し、一つでも不足すれば消費しません。
-同じadmission IDと同じ入力は最長windowの間重複消費せず、違う入力は競合として拒否します。
-windowはRedis側のTTLを使い、クライアント時計には依存しません。これは固定windowの消費制限です。
-同時実行数のlease、TPMの実測精算、LiteLLM全Router制限を実装したものではありません。
-テナントの認可scopeとリクエストfingerprintを必須にするCache APIも提供します。
-Redis障害はエラーを返します。Redis Clusterでは一つのnamespaceを同一hash slotへ置いて原子性を保ちます。
-再起動時に制限を維持するにはRedis永続化も必要で、試験ではAOFと`appendfsync always`を使用します。
+Redis evaluates all applicable limits together through Lua and consumes nothing if any limit is insufficient.
+The same admission ID with the same input avoids duplicate consumption for the longest window; different input is rejected as a conflict.
+Windows use Redis TTL rather than the client clock. These are fixed-window consumption limits.
+Concurrency leases, settlement of actual TPM usage, and the full set of LiteLLM router limits are not implemented.
+The cache API requires a tenant authorization scope and request fingerprint.
+Redis failures return errors. Redis Cluster places a namespace in the same hash slot to preserve atomicity.
+Preserving limits across restarts also requires Redis persistence; tests use AOF with `appendfsync always`.
 
-単独のユニット試験：
+Standalone unit tests:
 
 ```bash
 cargo test --locked -p llm-unify-storage --lib
 ```
 
-実DB・100並行・独立した2接続pool・PostgreSQL/Redis強制停止と復旧を含む試験：
+Tests with real databases, concurrency of 100, two independent connection pools, and forced PostgreSQL/Redis stop and recovery:
 
 ```bash
 python3 tools/parity/run_storage.py
 ```
 
-Python 3.12以上と稼働中のDocker、`config/parity/storage-test.json`のimageが必要です。
-imageを未取得の場合は同ファイルの`postgres_image`と`redis_image`を`docker pull`してください。
-runnerは試験専用資格情報・DB・Redis・空きポートを生成し、自分で作ったcontainerとvolumeだけを削除します。
-サービス停止時のエラー、復旧後の予約とレート制限の保持、精算再送時の重複なしを確認します。
-設定としきい値は同JSONから読み込み、結果とimage IDは`target/parity/storage.json`、
-詳細は`storage-*.log`に保存します。これは2台のHTTP Proxyや1時間の負荷試験の代わりにはなりません。
-通常の`cargo test`では実DB試験をignoredにし、runnerが`--ignored`を指定して全件実行します。
-未実施・0件・ignoredが残る実DB実行は成功レポートにしません。
-カバレッジの採用ツールは未設定です。`cargo-llvm-cov`導入後は、同じ隔離DBの環境変数を設定して
-`cargo llvm-cov -p llm-unify-storage --test postgres --test redis -- --ignored`で計測できます。
+Python 3.12 or later, running Docker, and the images in `config/parity/storage-test.json` are required.
+If images are absent, `docker pull` the file’s `postgres_image` and `redis_image` values.
+The runner creates dedicated test credentials, databases, Redis, and available ports; it removes only containers and volumes it created.
+It checks errors during service downtime, preservation of reservations and rate limits after recovery, and no duplicates on settlement retries.
+Configuration and thresholds come from that JSON. Results and image IDs are saved to `target/parity/storage.json`,
+with details in `storage-*.log`. This does not replace tests of two HTTP proxy instances or a one-hour load test.
+Real-database tests are ignored by ordinary `cargo test`; the runner executes all of them with `--ignored`.
+Unexecuted, zero-test, or partially ignored database runs are not recorded as successful.
+A coverage tool has not been selected. After installing `cargo-llvm-cov`, set the same isolated database environment variables
+and measure with `cargo llvm-cov -p llm-unify-storage --test postgres --test redis -- --ignored`.
 
-## Python比較試験
+## Python differential tests
 
-`config/parity/cases.json`に同じ入力と模擬上流応答を指定します。
-比較対象はHTTP状態、JSONフィールド、順序を保持したSSEイベント、Usage、上流送信内容・回数です。
-現時点のケースはChatの5件であり、料金・全API・全Providerを検証したものではありません。
-除外はケースごとに記載した生成ID・時刻のJSON pointerだけを許可します。
-不完全な環境やケース0件を成功とは記録しません。ログ・試験結果は`target/parity/`へ保存します。
+`config/parity/cases.json` specifies identical input and mock upstream responses.
+Comparisons cover HTTP status, JSON fields, ordered SSE events, usage, and upstream request contents/counts.
+The current five Chat cases do not verify prices, all APIs, or all providers.
+Only JSON pointers for generated IDs/timestamps explicitly listed per case can be excluded.
+Incomplete environments or zero cases are not recorded as success. Logs and results are saved to `target/parity/`.
 
-固定依存のローカルPython環境を作る場合：
+Create a local Python environment with pinned dependencies:
 
 ```bash
 uv export --frozen --no-dev --extra proxy --no-emit-workspace \
@@ -166,79 +167,79 @@ uv pip sync --python target/parity-reference-venv/bin/python \
 python3 tools/parity/run_local.py --python target/parity-reference-venv/bin/python
 ```
 
-Python参照版だけをコンテナで実行し、同じRustバイナリと比較する場合：
+Run only the Python reference in a container and compare against the same Rust binary:
 
 ```bash
 python3 tools/parity/run_local.py \
   --reference-image python:3.12-slim --uv-version 0.11.17 --startup-seconds 180
 ```
 
-このコマンドはローカルDockerイメージを使用し、内部で固定lockfileの依存をhash付きで同期します。
-参照コンテナと模擬上流は試験終了時に停止します。外部サービスの実APIキーは使用しません。
-native/reference/mock/compareをすべてコンテナで実行する構成は`deploy/parity.compose.yaml`です。
-`config/parity/containers.env.example`と、実行時の`PARITY_MASTER_KEY`・`PARITY_SUBJECT`を使用します。
-`PARITY_SUBJECT`は`python3 tools/parity/gate.py --subject`で取得し、master keyは試験専用の乱数を使います。
-Composeの起動と停止は`docker compose --env-file config/parity/containers.env.example -f deploy/parity.compose.yaml up --build --abort-on-container-exit --exit-code-from compare`と、同じ指定で`down`です。
-PostgreSQL/Redisを含む本番Composeではありません。全コンテナ構成のビルド・試験が未完了である限り受け入れを通しません。
+This command uses a local Docker image and synchronizes dependencies from the pinned lockfile with hashes inside it.
+The reference container and mock upstream stop after testing. No live external API keys are used.
+`deploy/parity.compose.yaml` runs native/reference/mock/compare entirely in containers.
+It uses `config/parity/containers.env.example` and runtime `PARITY_MASTER_KEY` / `PARITY_SUBJECT` values.
+Get `PARITY_SUBJECT` with `python3 tools/parity/gate.py --subject`; generate a random master key dedicated to testing.
+Start Compose with `docker compose --env-file config/parity/containers.env.example -f deploy/parity.compose.yaml up --build --abort-on-container-exit --exit-code-from compare`; stop it with `down` using the same options.
+This is not a production Compose deployment with PostgreSQL/Redis. Acceptance remains blocked until the complete container setup has been built and tested.
 
-## 完成判定と証跡
+## Completion criteria and evidence
 
-### CodexのローカルLLMを使う実接続試験
+### Live connections through Codex’s local LLM
 
 ```bash
 python3 tools/parity/run_live.py --codex-config /absolute/path/to/.codex/config.toml
 ```
 
-アクティブなProviderの`base_url`とモデルを読み、Rust Proxyの`/v1/responses`経由で通常応答・
-Streaming・強制Tool Call・Tool結果の往復を検証します。モデルを明示する場合は`--model`を指定します。
-Codexの`auth.json`やOAuth tokenは読みません。Providerの`env_key`があればその環境変数を使い、
-認証不要のloopbackルーターでは非secretのplaceholderを使います。非loopback接続にはHTTPSと明示API key環境変数を要求します。
-追加認証headerやquery設定を使うProviderは黙って設定を無視せず拒否します。
+Read the active provider’s `base_url` and model, then verify ordinary responses,
+streaming, forced tool calls, and tool-result round trips through the Rust proxy’s `/v1/responses`. Override the model with `--model`.
+The runner does not read Codex `auth.json` or OAuth tokens. It uses the provider’s `env_key` environment variable when specified,
+or a non-secret placeholder for an unauthenticated loopback router. Non-loopback connections require HTTPS and an explicit API key environment variable.
+Providers with additional authentication headers or query settings are rejected rather than having those settings silently ignored.
 
-入力・出力上限・時間制限は`config/parity/live-settings.json`で管理します。
-結果は`target/parity/live-local-router.json`に保存し、要求モデルと応答の実モデル名、Usage、
-Streaming順序と再構成、ToolのJSON引数とcall IDの往復を確認します。
-API key、Authorization header、生成本文、Tool引数の実データ、Proxyの生ログはreportへ保存しません。
-接続先が返すmodel名が要求aliasと異なる場合もそのまま記録します。モデルの実体・hardware配置を推定して認定しません。
+Input/output and time limits are configured in `config/parity/live-settings.json`.
+Results are saved to `target/parity/live-local-router.json`, checking requested and actual response model names, usage,
+stream ordering/reconstruction, and round trips of tool JSON arguments and call IDs.
+Reports do not store API keys, Authorization headers, generated text, actual tool argument data, or raw proxy logs.
+Returned model names are recorded unchanged even when different from the requested alias. Model identity or hardware placement is not inferred or certified.
 
-ローカルルーターの結果は`local_router_live`という部分試験です。
-OpenAI・Anthropic・Gemini・Azure・Bedrock・Vertex・Ollamaの各実API受け入れや、固定Python版との全項目比較を代替しません。
-部分証跡には`evidence.py --component-report target/parity/live-local-router.json`を指定できます。
-ソース変更後は他の証跡と同様、再実行が必要です。CLIは失敗・未完了応答・0件を合格にしません。
+Local-router results are partial tests named `local_router_live`.
+They do not replace live API acceptance for OpenAI, Anthropic, Gemini, Azure, Bedrock, Vertex, and Ollama, or full comparisons against the pinned Python version.
+Register partial evidence with `evidence.py --component-report target/parity/live-local-router.json`.
+Rerun after source changes, as with other evidence. The CLI does not pass failures, incomplete responses, or zero tests.
 
-### リリース判定
+### Release gate
 
 ```bash
 python3 tools/parity/gate.py
 ```
 
-結果は`target/parity/release.json`です。未実装の現状では終了コード1が正しい結果です。
-固定版・調査表の一致に加え、全候補の対象分類、入出力契約、実装、ケースごとの証跡を要求します。
-除外はEnterprise固有・Python SDK構文・独自Python直接実行だけで、理由と上流の根拠箇所が必要です。
+Results are saved to `target/parity/release.json`. Exit code 1 is expected while implementation remains incomplete.
+Besides matching the pinned version and inventory, the gate requires scope classification, input/output contracts, implementation, and per-case evidence for every candidate.
+Exclusions are limited to Enterprise-specific features, Python SDK syntax, and direct execution of custom Python; each requires a reason and upstream source evidence.
 
-実装レコードは候補IDをキーに次の形で記載します。
+Implementation records are keyed by candidate ID and have this shape:
 
 ```json
 {
   "scope": "oss",
   "status": "implemented",
-  "contract": {"input": "レビュー済み入力契約", "output": "レビュー済み出力契約"},
-  "verification_cases": ["ケースID"]
+  "contract": {"input": "Reviewed input contract", "output": "Reviewed output contract"},
+  "verification_cases": ["case-id"]
 }
 ```
 
-実行証跡のmanifestは`target/parity/evidence.json`へ保存します。`schema_version: 1`、
-`baseline`（version/commit/archive_sha256）、`subject`（現ソースのSHA-256）、`cases`、`suites`、`live`、`load`を持ちます。
-`cases`の各証跡は`status: "passed"`、検証した`features`のID配列、ローカル`report`の相対パス、ファイルの`sha256`を持ちます。
-`suites`と`live`も同じreport/hash/status形式です。report本文にも同じ`subject`、`status`、
-正の`passed`件数、`failed: 0`、`skipped: 0`が必要です。古いソースや改変したreportは拒否します。
-source digestはGitの未コミット・未追跡の実装ファイルも含み、vendorは固定manifestとパッチで別途検証します。
+The execution evidence manifest is saved to `target/parity/evidence.json` with `schema_version: 1`,
+`baseline` (version/commit/archive_sha256), `subject` (current source SHA-256), `cases`, `suites`, `live`, and `load`.
+Each entry in `cases` has `status: "passed"`, an array of verified `features` IDs, a relative local `report` path, and the file’s `sha256`.
+`suites` and `live` use the same report/hash/status format. Each report must also contain matching `subject` and `status`,
+a positive `passed` count, `failed: 0`, and `skipped: 0`. Stale source or modified reports are rejected.
+The source digest includes uncommitted and untracked implementation files; vendor is verified separately with the pinned manifest and patches.
 
-必要suiteと実API接続先、負荷条件は`config/parity/baseline.json`を参照します。
-負荷の実測値には台数、同時数、実行時間、ウォームアップ、RSS増加率と、意図しない失敗・二重計上・権限漏れ・予約漏れのゼロ件数が必要です。
-比較5ケースだけの成功reportを、全機能の検証済み証跡に登録してはいけません。
+See `config/parity/baseline.json` for required suites, live API endpoints, and load conditions.
+Measured load results must include instance count, concurrency, duration, warmup, RSS growth rate, and zero counts for unintended failures, duplicate accounting, authorization leaks, and reservation leaks.
+Do not register a report that passes only the five differential cases as evidence of full feature acceptance.
 
-現在のケースと基盤試験だけを証跡に登録する場合：
+Register only the current cases and foundation tests:
 
 ```bash
 python3 tools/parity/evidence.py \
@@ -247,8 +248,8 @@ python3 tools/parity/evidence.py \
 python3 tools/parity/gate.py
 ```
 
-両reportは同じ現ソースのdigestに一致する必要があります。登録処理は対応表の実装状態を変更しません。
-ケースIDの存在・一意性・比較成功をreport本文で確認し、部分試験は`components`へ保存します。
-`suites`・`live`・`load`は空のままなので、全体受け入れは引き続き失敗します。
-gateはsuite名・実API接続先・負荷reportの実測値も照合し、別試験の成功reportを流用できません。
-ローカル比較runnerは参照実行方式、container image ID/uv版またはPython版、Rust binaryとlockfileのSHA-256を保存します。
+Both reports must match the same current source digest. Registration does not change implementation status in the inventory.
+The report body is checked for case ID presence, uniqueness, and comparison success; partial tests are saved under `components`.
+`suites`, `live`, and `load` remain empty, so full acceptance still fails.
+The gate also checks suite names, live API endpoints, and measured load results, preventing reuse of successful reports from unrelated tests.
+The local comparison runner records the reference execution method, container image ID/uv version or Python version, and SHA-256 hashes of the Rust binary and lockfile.

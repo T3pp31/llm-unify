@@ -109,7 +109,7 @@ async fn spend_rows_preserve_fields_and_retries(
         ("spend".into(), spend.clone()),
         ("prompt_tokens".into(), json!(17)),
         ("completion_tokens".into(), json!(5)),
-        ("metadata".into(), json!("{\"message\":\"雪\"}")),
+        ("metadata".into(), json!("{\"message\":\"☃\"}")),
         ("request_tags".into(), json!(["tag-1", "tag-2"])),
         ("EngineReceivedMs".into(), json!(0)),
     ]);
@@ -136,7 +136,7 @@ async fn spend_rows_preserve_fields_and_retries(
             "request_id":"request-1", "response_id":"response-1", "provider_request_id":"provider-1", "litellm_call_id":"call-1",
             "team_id":"team-1", "api_key":"key-hash", "user":"user-1", "start_ms":start.to_string(), "end_ms":(start+1234).to_string(),
             "completion_start_time":null, "spend":spend, "prompt_tokens":17, "completion_tokens":5,
-            "metadata":"{\"message\":\"雪\"}", "request_tags":["tag-1","tag-2"], "received":1
+            "metadata":"{\"message\":\"☃\"}", "request_tags":["tag-1","tag-2"], "received":1
         }])
     );
     database.close().await;

@@ -25,7 +25,7 @@ async fn native_text_contract() {
             )
             .await
             .unwrap();
-        assert_eq!(response.output_text(), "こんにちは");
+        assert_eq!(response.output_text(), "Hello 🌍");
         assert_eq!(response.finish_reason, FinishReason::Stop);
         assert_eq!(response.usage.unwrap().total_tokens, Some(7));
         assert_eq!(response.deployment, provider);

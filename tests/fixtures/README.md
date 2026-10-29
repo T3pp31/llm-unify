@@ -1,15 +1,15 @@
-# Fixture の出典
+# Fixture sources
 
-これらは実サービスから取得した記録ではなく、公式 API の公開形式に基づく合成 Fixture です。
-確認日: 2026-10-25。モデル名と本文はテスト用です。
+These are synthetic fixtures based on the public formats in official API documentation, rather than recordings from live services.
+Verified on: 2026-10-25. Model names and response text are test data.
 
-| ファイル | API | 公式資料 |
+| File | API | Official documentation |
 |---|---|---|
 | openai_chat.json | Chat Completions / v1 | https://platform.openai.com/docs/api-reference/chat |
 | openai_responses.json | Responses / v1 | https://platform.openai.com/docs/api-reference/responses |
 | anthropic.json | Messages / 2023-06-01 | https://platform.claude.com/docs/en/api/messages |
-| gemini.json | Interactions / v1beta、steps 形式 | https://ai.google.dev/api/interactions-api |
+| gemini.json | Interactions / v1beta, steps format | https://ai.google.dev/api/interactions-api |
 | vertex.json | generateContent / v1 | https://cloud.google.com/vertex-ai/generative-ai/docs/model-reference/inference |
 
-Streaming の合成イベントは契約テスト内で組み立てています。
-本物の応答を追加するときは、秘密情報と個人情報を除去し、API・取得日・出典を記録してください。
+Synthetic streaming events are constructed in the contract tests.
+When adding real responses, remove secrets and personal information and record the API, capture date, and source.

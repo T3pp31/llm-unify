@@ -6,7 +6,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let client = Client::from_env()?;
     let model = std::env::var("LLM_UNIFY_MODEL")?;
     let request = ChatRequest::new(model)
-        .user("東京の天気を調べてください。")
+        .user("Check the weather in Tokyo.")
         .tool(ToolDefinition::new(
             "weather",
             "Return weather for a city",
@@ -14,7 +14,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         ));
     let response = client.chat(request.clone()).await?;
     if response.cache_hit {
-        eprintln!("キャッシュ済みの Tool Call です。実行前に再利用の適否を判断してください。");
+        eprintln!(
+            "This tool call was cached. Decide whether reuse is appropriate before executing it."
+        );
         return Ok(());
     }
     let mut next = request.message(response.clone().into_message());

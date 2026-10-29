@@ -106,8 +106,8 @@ fn context(messages: Option<Value>, input: Option<Value>) -> SemanticCacheContex
     r#"{"z":1,"a":[1.5,true,null],"m":{"k":"v"}}"#,
 )]
 #[case::citations_ensure_ascii(
-    json!([{"role": "tool", "search_results": [{"citations": ["caf\u{e9}", "\u{4e2d}"]}]}]),
-    r#"["caf\u00e9","\u4e2d"]"#,
+    json!([{"role": "tool", "search_results": [{"citations": ["caf\u{e9}", "\u{d55c}"]}]}]),
+    r#"["caf\u00e9","\ud55c"]"#,
 )]
 #[case::citations_astral_chars_as_surrogate_pairs(
     json!([{"role": "tool", "search_results": [{"citations": "\u{1f600}"}]}]),

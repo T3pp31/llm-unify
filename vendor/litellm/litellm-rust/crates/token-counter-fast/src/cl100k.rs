@@ -94,7 +94,7 @@ mod tests {
     #[case("\u{a0}abc\u{a0}!", &["\u{a0}abc", "\u{a0}", "!"])]
     #[case("<|endoftext|>", &["<|", "endoftext", "|>"])]
     #[case("e\u{301}a", &["e", "\u{301}a"])]
-    #[case("日本語 ١٢٣٤", &["日本語", " ", "١٢٣", "٤"])]
+    #[case("한글말 ١٢٣٤", &["한글말", " ", "١٢٣", "٤"])]
     fn scanner_splits_like_the_regex(#[case] text: &str, #[case] expected: &[&str]) {
         assert_eq!(split(text), expected);
     }

@@ -1,1 +1,1 @@
-{"id":"msg_fixture","type":"message","role":"assistant","model":"test-model","content":[{"type":"text","text":"こんにちは"}],"stop_reason":"end_turn","usage":{"input_tokens":5,"output_tokens":2}}
+{"id":"msg_fixture","type":"message","role":"assistant","model":"test-model","content":[{"type":"text","text":"Hello 🌍"}],"stop_reason":"end_turn","usage":{"input_tokens":5,"output_tokens":2}}

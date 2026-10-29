@@ -642,7 +642,7 @@ mod tests {
     }
 
     fn wire() -> String {
-        let event = json!({"id":"stream-fixture","model":"internal","choices":[{"index":0,"delta":{"content":"こんにちは"},"finish_reason":"stop"}]});
+        let event = json!({"id":"stream-fixture","model":"internal","choices":[{"index":0,"delta":{"content":"Hello 🌍"},"finish_reason":"stop"}]});
         format!("data: {event}\r\n\r\ndata: [DONE]\r\n\r\n")
     }
 
@@ -663,7 +663,7 @@ mod tests {
             .await;
             assert_eq!(output.len(), 2, "split={split}");
             let first = std::str::from_utf8(output[0].as_ref().unwrap()).unwrap();
-            assert!(first.contains("こんにちは"));
+            assert!(first.contains("Hello 🌍"));
             assert!(first.contains("public"));
             assert_eq!(output[1].as_ref().unwrap().as_ref(), b"data: [DONE]\n\n");
         }

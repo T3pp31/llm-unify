@@ -12,7 +12,7 @@ encoding's split pattern applied with the `regex` module tiktoken itself uses,
 so a scanner that splits differently fails even where BPE would count the same.
 `<encoding>/requests.jsonl` holds `{"body", "input_tokens"}` lines, `body` being
 the exact request bytes as a JSON string, counted with the proxy's admission
-counter (`_count_input_tokens(body, model)`) for a model Python counts with that
+counter (`count_input_tokens_for_model(request_body=body, model=model)`) for a model Python counts with that
 encoding. Every message in the 50k-token body is shorter than the Python chunk
 size so the chunked Python count equals the exact whole-text tiktoken count the
 Rust counter produces.
@@ -31,7 +31,7 @@ import tiktoken
 
 from litellm.constants import TIKTOKEN_ENCODE_CHUNK_SIZE_CHARS
 from litellm.litellm_core_utils.token_counter import openai_tokenizer_encoding
-from litellm.proxy.spend_tracking.budget_reservation import _count_input_tokens
+from litellm.proxy.spend_tracking.input_tokens import count_input_tokens_for_model
 
 HERE: Final = Path(__file__).resolve().parent
 MODELS: Final = {"cl100k_base": "gpt-4", "o200k_base": "gpt-4o"}
@@ -79,8 +79,8 @@ ALPHABET: Final = (
     "é",
     "e\u0301",
     "ß",
-    "漢",
-    "字",
+    "한",
+    "글",
     "ع",
     "३",
     "½",
@@ -89,8 +89,8 @@ ALPHABET: Final = (
     "👍🏽",
     "Ａ",
     "ﬁ",
-    "㍿",
-    "㋿",
+    "℅",
+    "℆",
     "ꟲ",
     "𐞁",
     "a\u030a",
@@ -156,11 +156,11 @@ CORPUS: Final = (
     "\r\n\r\n\r\n",
     "   ",
     "😀😃😄 👍🏽 🇺🇸 👨‍👩‍👧‍👦 ✈️ ❤️‍🔥 ٭ ※ ⌘ ⏎",
-    "漢字かな交じり文、東京都千代田区。日本語のテキストです。中文测试。한국어 텍스트",
+    "English sample text with punctuation. Uncased Unicode letters: 한국어 텍스트",
     "مرحبا بالعالم، هذا نص عربي مع أرقام ١٢٣٤٥٦٧ و علامات ترقيم!",
     "Zürich, façade, naïve, Ærøskøbing, Ελληνικά, Русский текст, עברית, हिन्दी, ไทย",
     "e\u0301 a\u030a \u1e0b\u0323 \u0301\u0301 combining\u0308 marks\u0301!",
-    "ΣΊΣΥΦΟΣ ǅungla İstanbul ﬁle ﬂow Ａｂｃ ㍿ ㋿ ꟲ 𐞁",
+    "ΣΊΣΥΦΟΣ ǅungla İstanbul ﬁle ﬂow Ａｂｃ ℅ ℆ ꟲ 𐞁",
     "<|endoftext|> <|fim_prefix|>code<|fim_middle|>more<|fim_suffix|> <|endofprompt|> <|im_start|>",
     "<EOT> <META_START> <s> </s> [INST] [/INST] <<SYS>>",
     "def f(x):\n    return {'a': x ** 2, \"b\": [1, 2, 3]}  # comment\n\nprint(f(10))\n",
@@ -174,7 +174,7 @@ CORPUS: Final = (
     "0" * 3000,
     "!" * 3000,
     "😀" * 1000,
-    "漢" * 1000,
+    "한" * 1000,
     "\u00a0abc\u00a0! \u2028x \u3000y \u200bz \u200d\u200d q",
     "x\u0085y \x0b\x0c z",
     "\x00\x01\x02 \x7f \ufffd",
@@ -187,7 +187,7 @@ CORPUS: Final = (
     "9'9 9's a'9 '9 ' 's' ' 's",
     "١٢٣٤ ½⅓¼ ⅣⅤ 𝟘𝟙𝟚𝟛𝟜𝟝𝟞𝟟𝟠𝟡 ①②③",
     "camelCase PascalCase ABCdef ABCdeF ABC aB Ab ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzABC",
-    "日本ABC ABC日本 日本語abc abc日本語 漢字Kanji kanji漢字 KANJI漢字kanji مرحباABC ABCمرحبا abcمرحبا",
+    "한글ABC ABC한글 한글말abc abc한글말 한글Kanji kanji한글 KANJI한글kanji مرحباABC ABCمرحبا abcمرحبا",
     "\u0301ABC \u0301abc \u0301\u0301A A\u0301\u0301 E\u0301A aE\u0301 !!\u0301a \u00a0\u0301A x\u0308Y X\u0308y",
     "ᵃbc ᵃBC Aᵃbc Aᵃ ᵃ' ᵃ's ǅungla aǅB AǅB Aǅb ǅǅ ǈx İi ΣΊΣΥΦΟΣσ ΣσΣ",
     "don'tx ABC's abc'S abc'ſ ABC'ſx IT'SOK it'Dbe 'sabc x's 's 'Sx'Tx x’s X'LLx X'Ll",
@@ -253,7 +253,7 @@ WORDS: Final = (
     "Zürich",
     "café",
     "naïve",
-    "東京",
+    "London",
     "مرحبا",
     "🙂",
     "42",
@@ -413,7 +413,7 @@ def main() -> None:
     bodies: Final = tuple(SMALL_REQUESTS) + (chat_body(rng, 50_000),)
     with (OUT / "requests.jsonl").open("w", encoding="utf-8") as handle:
         for body in bodies:
-            input_tokens = _count_input_tokens(dict(body), MODEL)
+            input_tokens = count_input_tokens_for_model(request_body=dict(body), model=MODEL)
             assert input_tokens is not None
             handle.write(json.dumps({"body": json.dumps(body), "input_tokens": input_tokens}) + "\n")
 

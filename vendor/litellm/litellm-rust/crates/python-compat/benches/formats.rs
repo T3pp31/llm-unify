@@ -22,7 +22,7 @@ fn cached_completion() -> String {
             format!(
                 "{{'finish_reason': 'stop', 'index': {index}, 'message': {{'content': \
                  'Benchmarks compare the same workload under controlled conditions, so a \
-                 change in time reflects the code rather than the environment. café 日本 \
+                 change in time reflects the code rather than the environment. café 한글 \
                  {index}', 'role': 'assistant', 'tool_calls': None, 'function_call': None}}, \
                  'logprobs': None}}"
             )

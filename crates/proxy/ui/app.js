@@ -16,8 +16,8 @@
     });
     if (!response.ok) {
       const error = new Error(response.status === 401 || response.status === 403
-        ? '管理キーを確認して、もう一度ログインしてください。'
-        : `情報を取得できませんでした（HTTP ${response.status}）。しばらくしてから更新してください。`);
+        ? 'Check your master key and sign in again.'
+        : `Could not retrieve information (HTTP ${response.status}). Try refreshing in a moment.`);
       error.status = response.status;
       throw error;
     }
@@ -32,9 +32,9 @@
   async function copy(text) {
     try {
       await navigator.clipboard.writeText(text);
-      message('クリップボードにコピーしました。');
+      message('Copied to clipboard.');
     } catch {
-      message('コピーできませんでした。表示された値を選択してコピーしてください。', true);
+      message('Could not copy. Select and copy the displayed value manually.', true);
     }
   }
 
@@ -42,12 +42,12 @@
     try {
       const result = await request('/health/liveliness');
       if (result.status !== 'alive') throw new Error('Invalid health response');
-      byId('health').textContent = 'オンライン';
-      byId('sidebar-status').textContent = 'サービス稼働中';
+      byId('health').textContent = 'Online';
+      byId('sidebar-status').textContent = 'Service running';
       byId('health-dot').classList.add('healthy');
     } catch {
-      byId('health').textContent = '接続できません';
-      byId('sidebar-status').textContent = '接続を確認してください';
+      byId('health').textContent = 'Unavailable';
+      byId('sidebar-status').textContent = 'Check your connection';
       byId('health-dot').classList.remove('healthy');
     }
   }
@@ -68,17 +68,17 @@
   function renderModels() {
     const query = byId('model-search').value.trim().toLocaleLowerCase();
     const matches = models.filter((model) => model.toLocaleLowerCase().includes(query));
-    byId('search-count').textContent = `${matches.length} / ${models.length}件`;
+    byId('search-count').textContent = `${matches.length} / ${models.length} models`;
     byId('model-list').replaceChildren(...matches.map((model) => {
       const button = document.createElement('button');
       button.className = 'copy-button';
-      button.textContent = '名前をコピー';
-      button.setAttribute('aria-label', `${model}のモデル名をコピー`);
+      button.textContent = 'Copy name';
+      button.setAttribute('aria-label', `Copy model name: ${model}`);
       button.addEventListener('click', () => { void copy(model); });
-      return row(model, '登録済み', button);
+      return row(model, 'Configured', button);
     }));
     byId('models-empty').hidden = matches.length > 0;
-    byId('models-empty').textContent = models.length === 0 ? '登録されたモデルがありません。' : '一致するモデルがありません。';
+    byId('models-empty').textContent = models.length === 0 ? 'No models configured.' : 'No matching models.';
   }
 
   function reset() {
@@ -98,9 +98,9 @@
     byId('model-list').hidden = true;
     byId('endpoint-list').hidden = true;
     byId('models-empty').hidden = false;
-    byId('models-empty').textContent = 'ログインすると登録モデルを表示します。';
+    byId('models-empty').textContent = 'Sign in to view configured models.';
     byId('endpoints-empty').hidden = false;
-    byId('updated').textContent = '未接続';
+    byId('updated').textContent = 'Disconnected';
   }
 
   async function connect(candidate) {
@@ -109,14 +109,14 @@
     const revision = connectionRevision;
     byId('connect').disabled = true;
     byId('refresh').disabled = true;
-    message('情報を取得しています…');
+    message('Loading information…');
     try {
       const [status] = await Promise.all([
         request('/ui/api/status', { Authorization: `Bearer ${candidate}` }), health(),
       ]);
       if (revision !== connectionRevision) return;
       if (status.product !== 'LLM Unify' || !Array.isArray(status.models) || status.models.some((model) => typeof model !== 'string') || !Array.isArray(status.endpoints)) {
-        throw new Error('情報を読み取れませんでした。もう一度更新してください。');
+        throw new Error('Could not read the information. Please refresh again.');
       }
       token = candidate;
       models = status.models;
@@ -126,7 +126,7 @@
       byId('refresh').hidden = false;
       byId('search-row').hidden = false;
       byId('version').textContent = `LLM Unify v${status.version}`;
-      byId('model-count').textContent = models.length.toLocaleString('ja-JP');
+      byId('model-count').textContent = models.length.toLocaleString('en-US');
       renderModels();
       byId('endpoint-list').replaceChildren(...status.endpoints.map((endpoint) => {
         const method = document.createElement('span');
@@ -137,14 +137,14 @@
       byId('endpoints-empty').hidden = true;
       byId('model-list').hidden = false;
       byId('endpoint-list').hidden = false;
-      byId('updated').textContent = `最終更新 ${new Date().toLocaleString('ja-JP')}`;
-      message('最新の設定を取得しました。');
+      byId('updated').textContent = `Last updated: ${new Date().toLocaleString('en-US')}`;
+      message('Configuration is up to date.');
     } catch (error) {
       if (revision !== connectionRevision) return;
       if (!token || error.status === 401 || error.status === 403) reset();
       const text = error.name === 'TimeoutError' || error.name === 'AbortError'
-        ? '接続がタイムアウトしました。しばらくしてから更新してください。'
-        : error instanceof TypeError ? '接続できませんでした。サービスの稼働状況を確認してください。' : error.message;
+        ? 'Connection timed out. Try refreshing in a moment.'
+        : error instanceof TypeError ? 'Could not connect. Check whether the service is running.' : error.message;
       message(text, true);
     } finally {
       pending = false;
@@ -161,7 +161,7 @@
   byId('model-search').addEventListener('input', renderModels);
   byId('copy-base').addEventListener('click', () => { void copy(baseUrl); });
   byId('refresh').addEventListener('click', () => { if (token) void connect(token); });
-  byId('disconnect').addEventListener('click', () => { reset(); message('ログアウトしました。'); });
+  byId('disconnect').addEventListener('click', () => { reset(); message('Signed out.'); });
   window.addEventListener('pagehide', reset);
-  void health().then(() => message('ログインしてワークスペースを開きましょう。'));
+  void health().then(() => message('Sign in to open your workspace.'));
 })();

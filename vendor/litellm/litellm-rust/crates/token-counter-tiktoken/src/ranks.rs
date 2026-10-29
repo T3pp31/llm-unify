@@ -277,7 +277,7 @@ mod tests {
             );
             for text in [
                 "",
-                "café 漢字 ع 🙂",
+                "café 한글 ع 🙂",
                 "a\r\nb\t ",
                 "       hello 123456789",
                 &special_text,

@@ -34,7 +34,7 @@ fn inputs(tokenizer: &Tokenizer) -> Vec<(&'static str, String)> {
         ),
         (
             "unicode_nfkc",
-            "Ａ quick café résumé: مرحبا 世界 🙂 ﬁ Ⅳ.\n".repeat(16),
+            "Ａ quick café résumé: مرحبا 한글 🙂 ﬁ Ⅳ.\n".repeat(16),
         ),
         ("large_prompt", LARGE_PROMPT_UNIT.repeat(256)),
         ("full_context_1m_tokens", full_context_input(tokenizer)),
