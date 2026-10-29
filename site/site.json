@@ -1,0 +1,5 @@
+{
+  "repository_url": "https://github.com/T3pp31/llm-unify",
+  "site_url": "https://t3pp31.github.io/llm-unify/",
+  "description": "An open-source LLM gateway and asynchronous Rust SDK. Bring native provider APIs, streaming, routing, and your own endpoints into one integration."
+}
